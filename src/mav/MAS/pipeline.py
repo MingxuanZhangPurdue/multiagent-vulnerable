@@ -1,5 +1,5 @@
 try:
-    from agents import Runner
+    from agents import Runner, ToolCallItem, ToolCallOutputItem, MessageOutputItem, ReasoningItem, HandoffCallItem, HandoffOutputItem
 except ImportError:
     Runner = None
 
@@ -24,8 +24,6 @@ class Pipeline:
     async def query_openai_agents(
         self,
         input: str,
-        env,
-        attack,
     ):
         if Runner is None:
             raise ImportError("""An OpenAI Agent is passed as the MAS, but the Runner module is not available. 
@@ -45,7 +43,42 @@ class Pipeline:
         '''
         try:
             result = await Runner.run(self.mas, input)
-            return result.final_output
+
+            tool_calls = {}
+
+            final_output = result.final_output
+
+            for item in result.new_items:
+                if isinstance(item, ToolCallItem):
+                    tool_calls[item.raw_item.call_id] = {
+                        "agent": item.agent.name,
+                        "tool_name": item.raw_item.name,
+                        "tool_arguments": item.raw_item.arguments,
+                        "tool_output": None, # Initialize tool_output to None
+                        "status": item.raw_item.status,
+                    }
+                elif isinstance(item, ToolCallOutputItem):
+                    call_id = item.raw_item.call_id
+                    if call_id in tool_calls:
+                        tool_calls[call_id]["tool_output"] = item.raw_item.output
+                elif isinstance(item, HandoffCallItem):
+                    tool_calls[item.raw_item.call_id] = {
+                        "agent": item.agent.name,
+                        "tool_name": item.raw_item.name,
+                        "tool_arguments": item.raw_item.arguments,
+                        "tool_output": None, # Initialize tool_output to None
+                        "status": item.raw_item.status,
+                    }
+                elif isinstance(item, HandoffOutputItem):
+                    call_id = item.raw_item.call_id
+                    if call_id in tool_calls:
+                        tool_calls[call_id]["tool_output"] = item.raw_item.output
+
+            return {
+                "final_output": final_output,
+                "tool_calls": tool_calls,
+            }
+
         except Exception as e:
             raise RuntimeError(f"An error occurred while running the OpenAI agents: {e}")
 
