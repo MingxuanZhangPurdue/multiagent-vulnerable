@@ -17,9 +17,7 @@ class Pipeline:
     async def query(
         self,
         input,
-        tools,
         attack,
-        map
     ):
         pass
 
@@ -88,24 +86,24 @@ class Pipeline:
 
     def query_camel_agents(
         self,
-        **kwargs
+        input: str,
     ):
-        pass
+        raise NotImplementedError("Camel agents are not yet implemented in the pipeline.")
 
     def query_autogen_agents(
         self,
-        **kwargs
+        input: str,
     ):
-        pass
-
+        raise NotImplementedError("Autogen agents are not yet implemented in the pipeline.")
+    
     def query_metagpt_agents(
         self,
-        **kwargs
+        input: str,
     ):
-        pass
+        raise NotImplementedError("LangGraph agents are not yet implemented in the pipeline.")
 
     def query_langraph_agents(
         self,
-        **kwargs
+        input: str,
     ):
-        pass
+        raise NotImplementedError("LangGraph agents are not yet implemented in the pipeline.")
