@@ -3,6 +3,8 @@ try:
 except ImportError:
     Runner = None
 
+from collections import OrderedDict
+
 class Pipeline:
 
     def __init__(
@@ -44,7 +46,7 @@ class Pipeline:
         try:
             result = await Runner.run(self.mas, input)
 
-            tool_calls = {}
+            tool_calls = OrderedDict()
 
             final_output = result.final_output
 
@@ -78,7 +80,7 @@ class Pipeline:
 
             return {
                 "final_output": final_output,
-                "tool_calls": tool_calls,
+                "tool_calls": list(tool_calls.values()),
             }
 
         except Exception as e:
