@@ -4,33 +4,32 @@ except ImportError:
     Runner = None
 
 from collections import OrderedDict
-
 class Pipeline:
 
     def __init__(
         self,
         mas,
     ):
-        # multiagent system (MAS): Camel, Autogen, MetaGPT, OpenAI Agents, LanGraph
+        # multiagent system (MAS): OpenAI Agents, Camel, Autogen, MetaGPT, LanGraph
         self.mas = mas
 
     async def query(
         self,
-        input: str,
-        attack: str | None = None,
+        input,
+        runtime,
+        env,
+        messages,
+        extra_args,
     ):
         pass
-    
+
     async def query_openai_agents(
         self,
         input: str,
     ):
-        if Runner is None:
-            raise ImportError("""An OpenAI Agent is passed as the MAS, but the Runner module is not available. 
-            Please ensure it is installed and accessible. You can install it using pip:
-            pip install openai-agents""")
-        
         '''
+        This method takes an OpenAI Agent as the MAS and an input string.
+
         When you use the run method in Runner, you pass in a starting agent and input. 
         The input can either be a string (which is considered a user message), or a list of input items, which are the items in the OpenAI Responses API.
         The runner then runs a loop:
@@ -41,6 +40,11 @@ class Pipeline:
             c. If the LLM produces tool calls, we run those tool calls, append the results, and re-run the loop.
         3. If we exceed the max_turns passed, we raise a MaxTurnsExceeded exception.
         '''
+
+        if Runner is None:
+            raise ImportError("""An OpenAI Agent is passed as the MAS, but the Runner module is not available. 
+            Please ensure it is installed and accessible. You can install it using pip:
+            pip install openai-agents""")
 
         try:
             result = await Runner.run(self.mas, input)
