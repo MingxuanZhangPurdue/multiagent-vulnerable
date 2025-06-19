@@ -52,27 +52,29 @@ class Pipeline:
                 if isinstance(item, ToolCallItem):
                     tool_calls[item.raw_item.call_id] = {
                         "agent": item.agent.name,
+                        "tool_call_id": item.raw_item.call_id,
                         "tool_name": item.raw_item.name,
                         "tool_arguments": item.raw_item.arguments,
                         "tool_output": None, # Initialize tool_output to None
                         "status": item.raw_item.status,
                     }
                 elif isinstance(item, ToolCallOutputItem):
-                    call_id = item.raw_item.call_id
+                    call_id = item.raw_item.get("call_id")
                     if call_id in tool_calls:
-                        tool_calls[call_id]["tool_output"] = item.raw_item.output
+                        tool_calls[call_id]["tool_output"] = item.raw_item.get("output", None)
                 elif isinstance(item, HandoffCallItem):
                     tool_calls[item.raw_item.call_id] = {
                         "agent": item.agent.name,
+                        "tool_call_id": item.raw_item.call_id,
                         "tool_name": item.raw_item.name,
                         "tool_arguments": item.raw_item.arguments,
                         "tool_output": None, # Initialize tool_output to None
                         "status": item.raw_item.status,
                     }
                 elif isinstance(item, HandoffOutputItem):
-                    call_id = item.raw_item.call_id
+                    call_id = item.raw_item.get("call_id")
                     if call_id in tool_calls:
-                        tool_calls[call_id]["tool_output"] = item.raw_item.output
+                        tool_calls[call_id]["tool_output"] = item.raw_item.get("output", None)
 
             return {
                 "final_output": final_output,
