@@ -16,11 +16,11 @@ class Pipeline:
 
     async def query(
         self,
-        input,
-        attack,
+        input: str,
+        attack: str | None = None,
     ):
         pass
-
+    
     async def query_openai_agents(
         self,
         input: str,
@@ -41,6 +41,7 @@ class Pipeline:
             c. If the LLM produces tool calls, we run those tool calls, append the results, and re-run the loop.
         3. If we exceed the max_turns passed, we raise a MaxTurnsExceeded exception.
         '''
+
         try:
             result = await Runner.run(self.mas, input)
 

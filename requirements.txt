@@ -1,0 +1,6 @@
+openai
+openai-agents
+autogen-agentchat
+autogen-ext[openai]
+langgraph 
+langchain[anthropic]
