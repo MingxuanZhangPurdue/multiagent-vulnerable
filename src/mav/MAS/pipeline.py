@@ -1,7 +1,10 @@
 try:
+    import agents
     from agents import Runner, ToolCallItem, ToolCallOutputItem, MessageOutputItem, ReasoningItem, HandoffCallItem, HandoffOutputItem
 except ImportError:
-    Runner = None
+    agents = None
+
+from agentdojo.functions_runtime import FunctionCall
 
 from collections import OrderedDict
 class Pipeline:
@@ -10,8 +13,23 @@ class Pipeline:
         self,
         mas,
     ):
-        # multiagent system (MAS): OpenAI Agents, Camel, Autogen, MetaGPT, LanGraph
+        # multiagent system (MAS): OpenAI Agents, Camel, Autogen, LanGraph
         self.mas = mas
+
+    def cast_to_function_call(
+        self,
+        tool_calls: list[dict],
+    ) -> list[FunctionCall]:
+        '''
+        Converts a list of tool calls to a list of Agentdojo FunctionCall objects.
+        '''
+        return [
+            FunctionCall(
+                function=tool_call["tool_name"],
+                args = tool_call["tool_arguments"],
+            )
+            for tool_call in tool_calls
+        ]
 
     async def query(
         self,
@@ -41,7 +59,7 @@ class Pipeline:
         3. If we exceed the max_turns passed, we raise a MaxTurnsExceeded exception.
         '''
 
-        if Runner is None:
+        if agents is None:
             raise ImportError("""An OpenAI Agent is passed as the MAS, but the Runner module is not available. 
             Please ensure it is installed and accessible. You can install it using pip:
             pip install openai-agents""")
