@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-
+from mav.Tasks.base_environment import TaskEnvironment
 class UserAccount(BaseModel):
     """
     Represents a simple user account.
@@ -30,7 +30,7 @@ class BankAccount(BaseModel):
 class Filesystem(BaseModel):
     files: dict[str, str]
 
-class BankingEnvironment(BaseModel):
+class BankingEnvironment(TaskEnvironment):
     bank_account: BankAccount
     filesystem: Filesystem
     user_account: UserAccount
