@@ -1,18 +1,9 @@
-try:
-    import agents
-    from agents import Runner, ToolCallItem, ToolCallOutputItem, MessageOutputItem, ReasoningItem, HandoffCallItem, HandoffOutputItem
-except ImportError:
-    agents = None
-
-import json
-from agentdojo.functions_runtime import FunctionCall
-
-from collections import OrderedDict
+from mav.MAS.framework import MultiAgentSystem
 class Pipeline:
 
     def __init__(
         self,
-        mas,
+        mas: MultiAgentSystem,  # supported multi-agent frameworks: OpenAI Agents, Autogent, LangGraph, Camel
     ):
         # multiagent system (MAS): OpenAI Agents, Camel, Autogen, LanGraph
         self.mas = mas
@@ -24,4 +15,4 @@ class Pipeline:
         **kwargs
     ):
 
-        self.mas.run(input, env, **kwargs)
+        return await self.mas.run(input, env, **kwargs)

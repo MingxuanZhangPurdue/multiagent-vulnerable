@@ -18,7 +18,7 @@ class MultiAgentSystem:
         self,
         mas,
     ):
-        # supported multi-agent frameworks: OpenAI Agents, Autogent, LangGraph, Camel
+        # supported multi-agent frameworks: OpenAI Agents, Autogen, LangGraph, Camel
         self.mas = mas
 
     def cast_to_function_call(

@@ -1,5 +1,5 @@
 import json
-from mav.Tasks.v1.banking.environment import BankingEnvironment, Transaction
+from mav.Tasks.banking.environment import BankingEnvironment, Transaction
 
 def get_user_info(
     environment: BankingEnvironment,
