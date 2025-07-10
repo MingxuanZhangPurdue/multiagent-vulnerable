@@ -5,7 +5,7 @@ except ImportError:
     agents = None
 
 import json
-from agentdojo.functions_runtime import FunctionCall
+from mav.items import FunctionCall
 
 from collections import OrderedDict
 
@@ -26,7 +26,7 @@ class MultiAgentSystem:
         tool_calls: list[dict],
     ) -> list[FunctionCall]:
         '''
-        Converts a list of tool calls to a list of Agentdojo FunctionCall objects.
+        Converts a list of tool calls to a list of FunctionCall objects.
         '''
         return [
             FunctionCall(
@@ -110,30 +110,25 @@ class MultiAgentSystem:
 
             return {
                 "final_output": final_output,
-                "tool_calls": list(tool_calls.values()),
+                "tool_calls": self.cast_to_function_call(list(tool_calls.values())),
+                "environment": env,
             }
 
         except Exception as e:
             raise RuntimeError(f"An error occurred while running the OpenAI agents: {e}")
         
-    def query_autogen_agents(
+    def run_autogen_agents(
         self,
         input: str,
         env = None,
     ):
         raise NotImplementedError("Autogen agents are not yet implemented in the pipeline.")
 
-    def query_camel_agents(
+    def run_camel_agents(
         self,
         input: str,
     ):
         raise NotImplementedError("Camel agents are not yet implemented in the pipeline.")
-    
-    def query_metagpt_agents(
-        self,
-        input: str,
-    ):
-        raise NotImplementedError("LangGraph agents are not yet implemented in the pipeline.")
 
     def query_langraph_agents(
         self,

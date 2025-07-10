@@ -14,5 +14,4 @@ class Pipeline:
         env,
         **kwargs
     ):
-
         return await self.mas.run(input, env, **kwargs)

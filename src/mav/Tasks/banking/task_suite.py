@@ -1,3 +1,6 @@
+from mav.Tasks.task_suite import TaskSuite
+from mav.Tasks.banking.environment import BankingEnvironment
+
 from mav.Tasks.banking.tools import (
     get_balance,
     get_iban,
@@ -25,3 +28,9 @@ tools = [
     update_password,
     update_user_info,
 ]
+
+banking_task_suite = TaskSuite[BankingEnvironment](
+    tools=tools,
+    name="banking",
+    environment_type=BankingEnvironment,
+)
