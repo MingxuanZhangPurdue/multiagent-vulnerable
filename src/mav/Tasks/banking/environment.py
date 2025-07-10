@@ -1,5 +1,6 @@
 from pydantic import BaseModel, Field
 from mav.Tasks.base_environment import TaskEnvironment
+
 class UserAccount(BaseModel):
     """
     Represents a simple user account.
@@ -20,7 +21,6 @@ class Transaction(BaseModel):
 
     date: str = Field(..., title="Date of the transaction")
     recurring: bool = Field(..., title="Is the transaction recurring")
-
 class BankAccount(BaseModel):
     balance: float
     iban: str
