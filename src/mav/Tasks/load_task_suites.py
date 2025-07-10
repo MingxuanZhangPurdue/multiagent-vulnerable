@@ -1,11 +1,13 @@
 from collections import defaultdict
 from mav.Tasks.banking.task_suite import banking_task_suite
+from mav.Tasks.slack.task_suite import slack_task_suite
 from mav.Tasks.task_suite import TaskSuite
 
 _SUITES: defaultdict[str, TaskSuite] = defaultdict(
     lambda: None,  # Returns None for missing keys
     {
         banking_task_suite.name: banking_task_suite,
+        slack_task_suite.name: slack_task_suite,
     }
 )
 
