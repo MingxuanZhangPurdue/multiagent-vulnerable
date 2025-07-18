@@ -50,7 +50,7 @@ def update_user_info(
     if city:
         environment.user_account.city = city
 
-    return json.dumps({
+    return "User information updated: " + json.dumps({
         "first_name": environment.user_account.first_name,
         "last_name": environment.user_account.last_name,
         "street": environment.user_account.street,
@@ -59,9 +59,9 @@ def update_user_info(
 
 def next_id(
     environment: BankingEnvironment,
-) -> int:
+) -> str:
     """Get the next ID for a transaction."""
-    return (
+    return str(
         max(
             [t.id for t in environment.bank_account.transactions] + [t.id for t in environment.bank_account.scheduled_transactions],
             default=0,

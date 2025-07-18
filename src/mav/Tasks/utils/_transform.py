@@ -49,4 +49,7 @@ def convert_to_openai_function_tool(func: Callable[..., Any]) -> FunctionTool:
     wrapper.__name__ = func.__name__
     wrapper.__doc__ = func.__doc__
     
-    return function_tool()(wrapper)
+    try:
+        return function_tool()(wrapper)
+    except Exception:
+        return function_tool(strict_mode=False)(wrapper)

@@ -7,7 +7,7 @@ async def benchmark_suite_without_injections(
     suite: TaskSuite,
     user_tasks: Sequence[str] | None = None,
 ):
-    suite_utility_results: dict[str, bool] = {}
+    suite_results: dict[str, dict] = {}
 
     if user_tasks is not None:
         user_tasks_to_run = [suite.get_user_task_by_id(user_task_id) for user_task_id in user_tasks]
@@ -15,7 +15,11 @@ async def benchmark_suite_without_injections(
         user_tasks_to_run = suite.user_tasks.values()
 
     for user_task in user_tasks_to_run:
-        utility, _ = await suite.run_task_with_pipeline(agent_pipeline, user_task)
-        suite_utility_results[user_task.ID] = utility
-    
-    return suite_utility_results
+        utility, function_calls_match, results = await suite.run_task_with_pipeline(agent_pipeline, user_task)
+        suite_results[user_task.ID] = {
+            "utility": utility,
+            "function_calls_match": function_calls_match,
+            "results": results,
+        }
+
+    return suite_results

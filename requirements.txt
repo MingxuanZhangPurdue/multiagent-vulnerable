@@ -1,2 +1,4 @@
 openai
 openai-agents
+litellm
+autogen-agentchat
