@@ -4,7 +4,6 @@ import asyncio
 import json
 from datetime import datetime
 
-# 创建 logs 目录
 LOG_DIR = "/mnt/md0/dongshe1/multiagent-vulnerable/logs"
 os.makedirs(LOG_DIR, exist_ok=True)
 
@@ -24,7 +23,6 @@ logging.getLogger("httpx").setLevel(logging.WARNING)
 logging.getLogger("httpcore").setLevel(logging.WARNING)
 logging.getLogger("litellm").setLevel(logging.WARNING)
 logging.getLogger("openai").setLevel(logging.WARNING)
-# 或者完全禁止
 logger = logging.getLogger()
 from dotenv import load_dotenv
 
@@ -174,5 +172,4 @@ async def main():
     print(f"Utility Percentage: {utility_count / len(results) * 100:.2f}%")
     print(f"Function Calls Match Percentage: {function_calls_match_count / len(results) * 100:.2f}%")
 
-# 运行
 asyncio.run(main())
