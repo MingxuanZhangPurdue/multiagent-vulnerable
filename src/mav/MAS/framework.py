@@ -1,6 +1,15 @@
 try:
     import agents
-    from agents import Runner, ToolCallItem, ToolCallOutputItem, MessageOutputItem, ReasoningItem, HandoffCallItem, HandoffOutputItem
+    from agents import (
+        Runner, 
+        SQLiteSession,
+        ToolCallItem, 
+        ToolCallOutputItem, 
+        MessageOutputItem, 
+        ReasoningItem, 
+        HandoffCallItem, 
+        HandoffOutputItem
+    )
 except ImportError:
     agents = None
 
@@ -10,6 +19,7 @@ from mav.items import FunctionCall
 from collections import OrderedDict
 
 from mav.Tasks.base_environment import TaskEnvironment
+from mav.MAS.terminations import BaseTermination
 
 
 class MultiAgentSystem:
@@ -35,6 +45,68 @@ class MultiAgentSystem:
             )
             for tool_call in tool_calls
         ]
+    
+    async def run_new(
+        self,
+        input: str,
+        env: TaskEnvironment,
+        termination: BaseTermination
+    ):
+        try:
+            memory = SQLiteSession("memory")
+            
+            iteration = 0
+
+            while not termination(iteration):
+                iteration += 1
+                # Run the MAS with the current input and environment
+                result = await Runner.run(
+                    self.mas,
+                    input=input,
+                    context=env,
+                    session=memory
+                )
+
+            tool_calls = OrderedDict()
+
+            final_output = result.final_output
+
+            for item in result.new_items:
+                if isinstance(item, ToolCallItem):
+                    tool_calls[item.raw_item.call_id] = {
+                        "agent": item.agent.name,
+                        "tool_call_id": item.raw_item.call_id,
+                        "tool_name": item.raw_item.name,
+                        "tool_arguments": item.raw_item.arguments,
+                        "tool_output": None, # Initialize tool_output to None
+                        "status": item.raw_item.status,
+                    }
+                elif isinstance(item, ToolCallOutputItem):
+                    call_id = item.raw_item.get("call_id")
+                    if call_id in tool_calls:
+                        tool_calls[call_id]["tool_output"] = item.raw_item.get("output", None)
+                elif isinstance(item, HandoffCallItem):
+                    tool_calls[item.raw_item.call_id] = {
+                        "agent": item.agent.name,
+                        "tool_call_id": item.raw_item.call_id,
+                        "tool_name": item.raw_item.name,
+                        "tool_arguments": item.raw_item.arguments,
+                        "tool_output": None, # Initialize tool_output to None
+                        "status": item.raw_item.status,
+                    }
+                elif isinstance(item, HandoffOutputItem):
+                    call_id = item.raw_item.get("call_id")
+                    if call_id in tool_calls:
+                        tool_calls[call_id]["tool_output"] = item.raw_item.get("output", None)
+
+            return {
+                "final_output": final_output,
+                "tool_calls": self.cast_to_function_call(list(tool_calls.values())),
+                "environment": env,
+            }
+
+        except Exception as e:
+            raise RuntimeError(f"An error occurred while running the OpenAI agents: {e}")
 
     async def run(
         self,
@@ -47,7 +119,6 @@ class MultiAgentSystem:
             return await self.run_openai_agents(input, env)
         else:
             raise NotImplementedError("The specified MAS framework is not supported in this pipeline. Supported frameworks include OpenAI Agents, Autogen, LangGraph, and Camel.")
-        
 
     async def run_openai_agents(
         self,
@@ -116,22 +187,3 @@ class MultiAgentSystem:
 
         except Exception as e:
             raise RuntimeError(f"An error occurred while running the OpenAI agents: {e}")
-        
-    def run_autogen_agents(
-        self,
-        input: str,
-        env = None,
-    ):
-        raise NotImplementedError("Autogen agents are not yet implemented in the pipeline.")
-
-    def run_camel_agents(
-        self,
-        input: str,
-    ):
-        raise NotImplementedError("Camel agents are not yet implemented in the pipeline.")
-
-    def query_langraph_agents(
-        self,
-        input: str,
-    ):
-        raise NotImplementedError("LangGraph agents are not yet implemented in the pipeline.")
