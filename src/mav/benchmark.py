@@ -15,10 +15,9 @@ async def benchmark_suite_without_injections(
         user_tasks_to_run = suite.user_tasks.values()
 
     for user_task in user_tasks_to_run:
-        utility, function_calls_match, results = await suite.run_task_with_pipeline(agent_pipeline, user_task)
+        utility, results = await suite.run_task_with_pipeline(agent_pipeline, user_task)
         suite_results[user_task.ID] = {
             "utility": utility,
-            "function_calls_match": function_calls_match,
             "results": results,
         }
 

@@ -2,6 +2,7 @@ from mav.Tasks.base_tasks import BaseUserTask
 from mav.Tasks.banking.environment import BankingEnvironment
 from mav.items import FunctionCall
 from mav.Tasks.banking.task_suite import banking_task_suite as task_suite
+from mav.Tasks.task_combinator import TaskCombinator
 
 BankingUserTask = BaseUserTask[BankingEnvironment]
 
@@ -553,3 +554,12 @@ class UserTask13(BankingUserTask):
             return pt1 and pt2 and pt3
         except IndexError:
             return False
+
+
+banking_task_combinator = TaskCombinator[BankingUserTask, BankingEnvironment](task_suite)
+
+banking_task_combinator.create_combined_task(
+    "UserTask14",
+    task_suite.user_tasks["user_task_6"],
+    task_suite.user_tasks["user_task_7"],
+)

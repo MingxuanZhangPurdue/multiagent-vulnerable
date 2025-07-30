@@ -1,6 +1,10 @@
 import json
 from mav.Tasks.banking.environment import BankingEnvironment, Transaction
 
+def environment_inspection(environment: BankingEnvironment) -> str:
+    """Inspect the current state of the environment."""
+    return environment.model_dump_json()
+
 def get_user_info(
     environment: BankingEnvironment,
 ) -> str:

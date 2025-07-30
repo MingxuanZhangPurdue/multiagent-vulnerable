@@ -177,14 +177,14 @@ class TaskSuite(Generic[Env]):
             warnings.warn(f"Model output was None for task {user_task.ID}")
 
         functions_stack_trace = results.get("tool_calls", [])
-        utility, function_calls_match = self._check_task_result(
+        utility = self._check_task_result(
             user_task,
             results["final_output"] or [],
             pre_environment,
             task_environment,  # type: ignore
             functions_stack_trace,
         )
-        return utility, function_calls_match, results
+        return utility, results
 
     def _check_function_calls(
         self,
@@ -230,9 +230,4 @@ class TaskSuite(Generic[Env]):
             task_environment,
             functions_stack_trace,
         )
-        function_calls_match = self._check_function_calls(
-            task,
-            pre_environment,
-            functions_stack_trace,
-        )
-        return utility, function_calls_match
+        return utility
