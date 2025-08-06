@@ -236,6 +236,6 @@ def read_file(
     """Reads the contents of the file at the given path.
 
     Args:
-        file_path: The path to the file to read.
+        file_path: The path to the file to read. if should be just a pure file name, e.g. "file.txt", not a full path.
     """
     return environment.filesystem.files.get(file_path, "")
