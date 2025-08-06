@@ -19,7 +19,7 @@ from mav.items import FunctionCall
 from collections import OrderedDict
 
 from mav.Tasks.base_environment import TaskEnvironment
-from mav.MAS.terminations import BaseTermination
+from mav.MAS.terminations import BaseTermination, MaxIterationsTermination
 
 
 class MultiAgentSystem:
@@ -50,14 +50,16 @@ class MultiAgentSystem:
         self,
         input: str,
         env: TaskEnvironment,
-        termination: BaseTermination
+        termination: BaseTermination = MaxIterationsTermination(max_iterations=1)
     ):
         try:
             memory = SQLiteSession("memory")
             
             iteration = 0
 
-            while not termination(iteration):
+            results = await memory.get_items()
+
+            while not termination(iteration=iteration, results=results):
                 iteration += 1
                 # Run the MAS with the current input and environment
                 result = await Runner.run(
@@ -66,6 +68,8 @@ class MultiAgentSystem:
                     context=env,
                     session=memory
                 )
+
+                results = await memory.get_items()
 
             tool_calls = OrderedDict()
 
