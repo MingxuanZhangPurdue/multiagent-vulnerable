@@ -3,7 +3,7 @@ from typing import List, Dict, Any, Union, Optional
 
 class BaseTermination(ABC):
     @abstractmethod
-    def __call__(self, iteration: int, results: List[Dict[str, Any]]) -> bool:
+    def __call__(self, iteration: int, results: List[Dict[str, Any]] | None) -> bool:
         """Check if the termination condition is met.
         Returns:
             bool: True if the termination condition is met, False otherwise.
@@ -18,7 +18,7 @@ class AndTermination(BaseTermination):
             raise ValueError("At least one condition must be provided")
         self.conditions = conditions
 
-    def __call__(self, iteration: int, results: List[Dict[str, Any]]) -> bool:
+    def __call__(self, iteration: int, results: List[Dict[str, Any]] | None) -> bool:
         return all(condition(iteration, results) for condition in self.conditions)
 
 class OrTermination(BaseTermination):
@@ -29,7 +29,7 @@ class OrTermination(BaseTermination):
             raise ValueError("At least one condition must be provided")
         self.conditions = conditions
 
-    def __call__(self, iteration: int, results: List[Dict[str, Any]]) -> bool:
+    def __call__(self, iteration: int, results: List[Dict[str, Any]] | None) -> bool:
         return any(condition(iteration, results) for condition in self.conditions)
 
 class MaxIterationsTermination(BaseTermination):
@@ -40,7 +40,7 @@ class MaxIterationsTermination(BaseTermination):
             raise ValueError("max_iterations must be positive")
         self.max_iterations = max_iterations
 
-    def __call__(self, iteration: int, results: List[Dict[str, Any]]) -> bool:
+    def __call__(self, iteration: int, results: List[Dict[str, Any]] | None) -> bool:
         return iteration >= self.max_iterations
     
 class MessageTermination(BaseTermination):
@@ -49,8 +49,8 @@ class MessageTermination(BaseTermination):
     def __init__(self, termination_message: str):
         self.termination_message = termination_message
     
-    def __call__(self, iteration: int, results: List[Dict[str, Any]]) -> bool:
-        if not results:
+    def __call__(self, iteration: int, results: List[Dict[str, Any]] | None) -> bool:
+        if results is None or not results:
             return False
         
         final_item = results[-1]

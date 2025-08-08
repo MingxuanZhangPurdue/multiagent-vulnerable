@@ -1,39 +1,199 @@
-try:
-    import agents
-    from agents import (
-        Runner, 
-        SQLiteSession,
-        ToolCallItem, 
-        ToolCallOutputItem, 
-        MessageOutputItem, 
-        ReasoningItem, 
-        HandoffCallItem, 
-        HandoffOutputItem
-    )
-except ImportError:
-    agents = None
-
 import json
+import inspect
+from agents import (
+    Agent,
+    Runner, 
+    SQLiteSession,
+    TResponseInputItem
+)
+
+from typing import Any, Literal, get_args
+from pydantic import BaseModel
+
+from mav.MAS.terminations import BaseTermination
 from mav.items import FunctionCall
-
-from collections import OrderedDict
-
 from mav.Tasks.base_environment import TaskEnvironment
-from mav.MAS.terminations import BaseTermination, MaxIterationsTermination
+from mav.MAS.terminations import BaseTermination
 
 
 class MultiAgentSystem:
 
+    RunnerType = Literal["handoffs", "sequential", "planner_executor"]
+
     def __init__(
         self,
-        mas,
+        agents: Agent | list[Agent],
+        runner: RunnerType,
+        termination_condition: list[BaseTermination] | None = None,
     ):
-        # supported multi-agent frameworks: OpenAI Agents, Autogen, LangGraph, Camel
-        self.mas = mas
+        if runner == "handoffs" and not isinstance(agents, Agent):
+            raise ValueError("When using 'handoffs' runner, a single agent must be passed!")
+        elif runner == "sequential":
+            if not isinstance(agents, list) or not all(isinstance(agent, Agent) for agent in agents):
+                raise ValueError("When using 'sequential' runner, a list of agents of type agents.Agent must be passed!")
+            if not len(agents) >= 1:
+                raise ValueError("When using 'sequential' runner, at least one agent must be passed!")
+        elif runner == "planner_executor":
+            if not isinstance(agents, list) or not all(isinstance(agent, Agent) for agent in agents):
+                raise ValueError("When using 'planner_executor' runner, a list of agents of type agents.Agent must be passed!")
+            if not len(agents) == 2:
+                raise ValueError("When using 'planner_executor' runner, exactly two agents must be passed (planner and executor)!")
+            if termination_condition is None:
+                raise ValueError("When using 'planner_executor' runner, a termination condition must be provided!")
+        else:
+            raise ValueError(f"Invalid runner specified. Supported runners are {get_args(self.RunnerType)}")
+
+        self.agents = agents
+        self.runner = runner
+        self.termination_condition = termination_condition
+
+    async def query(
+        self,
+        input: str | list[TResponseInputItem],
+        env: TaskEnvironment,
+        max_iterations: int = 1000,
+        enable_executor_memory: bool = True,
+    ):
+        
+        if self.runner == "handoffs":
+            return await self.run_handoffs(input, env)
+        elif self.runner == "sequential":
+            return await self.run_sequential(input, env)
+        elif self.runner == "planner_executor":
+            return await self.run_planner_executor(input, env, max_iterations, enable_executor_memory)
+
+    async def run_handoffs(
+        self,
+        input: str | list[TResponseInputItem],
+        env: TaskEnvironment,
+    ) -> dict[str, Any]:
+        
+        """
+        Runs the agents in a handoff manner (if there are any) until the termination condition is met.
+        It will also work with a single agent.
+        """
+        if not isinstance(self.agents, Agent):
+            raise ValueError("When using 'handoffs' runner, a single agent must be passed!")
+
+        agent_input = input
+
+        agent_result = await Runner.run(
+            self.agents,
+            input=agent_input,
+            context=env,
+        )
+
+        final_output = agent_result.final_output
+
+        return {
+            "final_output": final_output,
+            "environment": env,
+        }
+
+    async def run_sequential(
+        self,
+        input: str | list[TResponseInputItem],
+        env: TaskEnvironment,
+    ) -> dict[str, Any]:
+        
+        """
+        Runs the agents in a sequential manner:
+            - We create a separate memory for each agent to store their results.
+            - It assumes the output of each agent will be used as the input for the next agent.
+            - If the last agent does not produce a final output, the initial input will be used as the final output.
+            - The final output will be the output of the last agent in the sequence after the termination condition is met.
+            - The results of the last agent will be used to determine if the termination condition is met.
+        """
+        if not isinstance(self.agents, list):
+            raise ValueError("When using 'sequential' runner, a list of agents must be passed!")
+
+        agent_input = input
+
+        for agent in self.agents:
+
+            agent_result = await Runner.run(
+                agent,
+                input=agent_input,
+                context=env,
+            )
+            
+            # The final output from the current agent will be used as input for the next agent
+            if agent_result.final_output:
+                agent_input = agent_result.final_output
+            else:
+                # If the agent does not produce a final output, we use the initial input for the next agent
+                agent_input = input
+
+        final_output = agent_result.final_output
+
+        return {
+            "final_output": final_output,
+            "environment": env,
+        }
+    
+    async def run_planner_executor(
+        self,
+        input: str | list[TResponseInputItem],
+        env: TaskEnvironment,
+        max_iterations: int = 1000,
+        enable_executor_memory: bool = True,
+    ) -> dict[str, Any]:
+        """
+        Runs the agents in a planner-executor manner:
+            - The first agent is assumed to be the planner, which generates a plan or output to be executed by the second agent (executor).
+            - The second agent (executor) takes the output from the planner and executes it.
+            - The process continues until the termination condition is met or the maximum number of iterations is reached.
+            - The final output will be the output of the planner after the termination condition is met.
+        """
+
+        planner = self.agents[0]
+
+        executor = self.agents[1]
+
+        iteration = 0
+
+        planner_memory = SQLiteSession(session_id="planner_memory")
+
+        executor_memory = SQLiteSession(session_id="executor_memory") if enable_executor_memory else None
+
+        planner_input = input
+
+        executor_input = None
+
+        while True and iteration < max_iterations:  # Prevent infinite loops
+
+            iteration += 1
+
+            planner_result = await Runner.run(
+                planner,
+                input=planner_input,
+                context=env,
+                memory=planner_memory,
+            )
+            
+            if self.termination_condition(iteration=iteration, results=planner_result.to_input_list()):
+                break
+
+            executor_input = self.cast_output_to_input(planner_result.final_output)
+
+            executor_result = await Runner.run(
+                executor,
+                input=executor_input,
+                context=env,
+                memory=executor_memory,
+            )
+
+            planner_input = self.cast_output_to_input(executor_result.final_output)
+
+        return {
+            "final_output": planner_result.final_output,
+            "environment": env,
+        }
+
 
     def cast_to_function_call(
         self,
-        tool_calls: list[dict],
+        tool_calls: list[dict[str, Any]],
     ) -> list[FunctionCall]:
         '''
         Converts a list of tool calls to a list of FunctionCall objects.
@@ -46,148 +206,28 @@ class MultiAgentSystem:
             for tool_call in tool_calls
         ]
     
-    async def run_new(
+    def cast_output_to_input(
         self,
-        input: str,
-        env: TaskEnvironment,
-        termination: BaseTermination = MaxIterationsTermination(max_iterations=1)
+        output: Any,
     ):
-        try:
-            memory = SQLiteSession("memory")
-            
-            iteration = 0
-
-            results = await memory.get_items()
-
-            while not termination(iteration=iteration, results=results):
-                iteration += 1
-                # Run the MAS with the current input and environment
-                result = await Runner.run(
-                    self.mas,
-                    input=input,
-                    context=env,
-                    session=memory
-                )
-
-                results = await memory.get_items()
-
-            tool_calls = OrderedDict()
-
-            final_output = result.final_output
-
-            for item in result.new_items:
-                if isinstance(item, ToolCallItem):
-                    tool_calls[item.raw_item.call_id] = {
-                        "agent": item.agent.name,
-                        "tool_call_id": item.raw_item.call_id,
-                        "tool_name": item.raw_item.name,
-                        "tool_arguments": item.raw_item.arguments,
-                        "tool_output": None, # Initialize tool_output to None
-                        "status": item.raw_item.status,
-                    }
-                elif isinstance(item, ToolCallOutputItem):
-                    call_id = item.raw_item.get("call_id")
-                    if call_id in tool_calls:
-                        tool_calls[call_id]["tool_output"] = item.raw_item.get("output", None)
-                elif isinstance(item, HandoffCallItem):
-                    tool_calls[item.raw_item.call_id] = {
-                        "agent": item.agent.name,
-                        "tool_call_id": item.raw_item.call_id,
-                        "tool_name": item.raw_item.name,
-                        "tool_arguments": item.raw_item.arguments,
-                        "tool_output": None, # Initialize tool_output to None
-                        "status": item.raw_item.status,
-                    }
-                elif isinstance(item, HandoffOutputItem):
-                    call_id = item.raw_item.get("call_id")
-                    if call_id in tool_calls:
-                        tool_calls[call_id]["tool_output"] = item.raw_item.get("output", None)
-
-            return {
-                "final_output": final_output,
-                "tool_calls": self.cast_to_function_call(list(tool_calls.values())),
-                "environment": env,
-            }
-
-        except Exception as e:
-            raise RuntimeError(f"An error occurred while running the OpenAI agents: {e}")
-
-    async def run(
-        self,
-        input: str,
-        env: TaskEnvironment,
-        **kwargs
-    ):  
-        if agents and issubclass(self.mas.__class__, agents.Agent):
-            # If the MAS is an OpenAI Agent, we use the run_openai_agents method
-            return await self.run_openai_agents(input, env)
+        if isinstance(output, str):
+            # If the output is a string, we use it directly as the input
+            input = output
+        elif inspect.isclass(output) and issubclass(output, BaseModel):
+            # If the output is a Pydantic model, we use its JSON representation as the input
+            input = output.model_dump_json(indent=2)
+        elif output is None:
+            # If the output is None, we raise an error
+            raise ValueError("Planner did not produce a final output to send to the executor!")
         else:
-            raise NotImplementedError("The specified MAS framework is not supported in this pipeline. Supported frameworks include OpenAI Agents, Autogen, LangGraph, and Camel.")
-
-    async def run_openai_agents(
-        self,
-        input: str,
-        env: TaskEnvironment,
-    ):
-        '''
-        This method takes an OpenAI Agent as the MAS and an input string.
-
-        When you use the run method in Runner, you pass in a starting agent and input. 
-        The input can either be a string (which is considered a user message), or a list of input items, which are the items in the OpenAI Responses API.
-        The runner then runs a loop:
-        1. We call the LLM for the current agent, with the current input.
-        2. The LLM produces its output.
-            a. If the LLM returns a final_output, the loop ends and we return the result.
-            b. If the LLM does a handoff, we update the current agent and input, and re-run the loop.
-            c. If the LLM produces tool calls, we run those tool calls, append the results, and re-run the loop.
-        3. If we exceed the max_turns passed, we raise a MaxTurnsExceeded exception.
-        '''
-
-        if agents is None:
-            raise ImportError("""An OpenAI Agent is passed as the MAS, but the Runner module is not available. 
-            Please ensure it is installed and accessible. You can install it using pip:
-            pip install openai-agents""")
-
-        try:
-            result = await Runner.run(self.mas, input, context=env)
-
-            tool_calls = OrderedDict()
-
-            final_output = result.final_output
-
-            for item in result.new_items:
-                if isinstance(item, ToolCallItem):
-                    tool_calls[item.raw_item.call_id] = {
-                        "agent": item.agent.name,
-                        "tool_call_id": item.raw_item.call_id,
-                        "tool_name": item.raw_item.name,
-                        "tool_arguments": item.raw_item.arguments,
-                        "tool_output": None, # Initialize tool_output to None
-                        "status": item.raw_item.status,
-                    }
-                elif isinstance(item, ToolCallOutputItem):
-                    call_id = item.raw_item.get("call_id")
-                    if call_id in tool_calls:
-                        tool_calls[call_id]["tool_output"] = item.raw_item.get("output", None)
-                elif isinstance(item, HandoffCallItem):
-                    tool_calls[item.raw_item.call_id] = {
-                        "agent": item.agent.name,
-                        "tool_call_id": item.raw_item.call_id,
-                        "tool_name": item.raw_item.name,
-                        "tool_arguments": item.raw_item.arguments,
-                        "tool_output": None, # Initialize tool_output to None
-                        "status": item.raw_item.status,
-                    }
-                elif isinstance(item, HandoffOutputItem):
-                    call_id = item.raw_item.get("call_id")
-                    if call_id in tool_calls:
-                        tool_calls[call_id]["tool_output"] = item.raw_item.get("output", None)
-
-            return {
-                "final_output": final_output,
-                "tool_calls": self.cast_to_function_call(list(tool_calls.values())),
-                "environment": env,
-            }
-
-        except Exception as e:
-            raise RuntimeError(f"An error occurred while running the OpenAI agents: {e}")
+            try:
+                # If the output is some other type, we try to cast it using JSON
+                input = json.dumps(
+                    output,
+                    indent=2,
+                    ensure_ascii=False,
+                )
+            except Exception as e:
+                # If the output cannot be cast to a string, we raise an error
+                raise ValueError(f"Failed to cast the output to string using JSON: {e}")
+        return input

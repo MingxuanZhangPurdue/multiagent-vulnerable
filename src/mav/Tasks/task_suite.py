@@ -9,7 +9,7 @@ from mav.items import FunctionCall
 from mav.Tasks.base_environment import TaskEnvironment
 from mav.Tasks.utils.yaml_loader import ImportLoader
 from mav.Tasks.base_tasks import BaseUserTask
-from mav.MAS.pipeline import Pipeline
+from mav.MAS.framework import MultiAgentSystem
 
 IT = TypeVar("IT")
 
@@ -144,7 +144,7 @@ class TaskSuite(Generic[Env]):
     
     async def run_task_with_pipeline(
         self,
-        pipeline: Pipeline,
+        multi_agent_system: MultiAgentSystem,
         user_task: BaseUserTask[Env],
         environment: Env | None = None,
     ) -> tuple[bool, bool]:
@@ -165,7 +165,7 @@ class TaskSuite(Generic[Env]):
             prompt = user_task.GOAL
             
         try:
-            results = await pipeline.query(prompt, task_environment)
+            results = await multi_agent_system.query(input=prompt, env=task_environment)
         except Exception as e:
             results = {
                 "final_output": None,
