@@ -25,6 +25,8 @@ class MultiAgentSystem:
         agents: Agent | list[Agent],
         runner: RunnerType,
         termination_condition: list[BaseTermination] | None = None,
+        max_iterations: int = 1000,
+        enable_executor_memory: bool = True,
     ):
         if runner == "handoffs" and not isinstance(agents, Agent):
             raise ValueError("When using 'handoffs' runner, a single agent must be passed!")
@@ -47,12 +49,14 @@ class MultiAgentSystem:
         self.runner = runner
         self.termination_condition = termination_condition
 
+        # planner_executor specific parameters
+        self.max_iterations = max_iterations
+        self.enable_executor_memory = enable_executor_memory
+
     async def query(
         self,
         input: str | list[TResponseInputItem],
         env: TaskEnvironment,
-        max_iterations: int = 1000,
-        enable_executor_memory: bool = True,
     ):
         
         if self.runner == "handoffs":
@@ -60,7 +64,7 @@ class MultiAgentSystem:
         elif self.runner == "sequential":
             return await self.run_sequential(input, env)
         elif self.runner == "planner_executor":
-            return await self.run_planner_executor(input, env, max_iterations, enable_executor_memory)
+            return await self.run_planner_executor(input, env)
 
     async def run_handoffs(
         self,
@@ -78,7 +82,7 @@ class MultiAgentSystem:
         agent_input = input
 
         agent_result = await Runner.run(
-            self.agents,
+            starting_agent=self.agents,
             input=agent_input,
             context=env,
         )
@@ -112,7 +116,7 @@ class MultiAgentSystem:
         for agent in self.agents:
 
             agent_result = await Runner.run(
-                agent,
+                starting_agent=agent,
                 input=agent_input,
                 context=env,
             )
@@ -135,8 +139,6 @@ class MultiAgentSystem:
         self,
         input: str | list[TResponseInputItem],
         env: TaskEnvironment,
-        max_iterations: int = 1000,
-        enable_executor_memory: bool = True,
     ) -> dict[str, Any]:
         """
         Runs the agents in a planner-executor manner:
@@ -154,21 +156,21 @@ class MultiAgentSystem:
 
         planner_memory = SQLiteSession(session_id="planner_memory")
 
-        executor_memory = SQLiteSession(session_id="executor_memory") if enable_executor_memory else None
+        executor_memory = SQLiteSession(session_id="executor_memory") if self.enable_executor_memory else None
 
         planner_input = input
 
         executor_input = None
 
-        while True and iteration < max_iterations:  # Prevent infinite loops
+        while True and iteration < self.max_iterations:  # Prevent infinite loops
 
             iteration += 1
 
             planner_result = await Runner.run(
-                planner,
+                starting_agent=planner,
                 input=planner_input,
                 context=env,
-                memory=planner_memory,
+                session=planner_memory,
             )
             
             if self.termination_condition(iteration=iteration, results=planner_result.to_input_list()):
@@ -180,7 +182,7 @@ class MultiAgentSystem:
                 executor,
                 input=executor_input,
                 context=env,
-                memory=executor_memory,
+                session=executor_memory,
             )
 
             planner_input = self.cast_output_to_input(executor_result.final_output)
