@@ -42,7 +42,7 @@ class MultiAgentSystem:
                 raise ValueError("When using 'planner_executor' runner, exactly two agents must be passed (planner and executor)!")
             if termination_condition is None:
                 raise ValueError("When using 'planner_executor' runner, a termination condition must be provided!")
-        else:
+        elif runner not in get_args(self.RunnerType):
             raise ValueError(f"Invalid runner specified. Supported runners are {get_args(self.RunnerType)}")
 
         self.agents = agents
@@ -73,7 +73,7 @@ class MultiAgentSystem:
     ) -> dict[str, Any]:
         
         """
-        Runs the agents in a handoff manner (if there are any) until the termination condition is met.
+        Runs the agents in a handoff manner (if there are any)
         It will also work with a single agent.
         """
         if not isinstance(self.agents, Agent):

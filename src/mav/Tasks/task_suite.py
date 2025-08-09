@@ -164,14 +164,7 @@ class TaskSuite(Generic[Env]):
         else:
             prompt = user_task.GOAL
             
-        try:
-            results = await multi_agent_system.query(input=prompt, env=task_environment)
-        except Exception as e:
-            results = {
-                "final_output": None,
-                "tool_calls": [],
-                "environment": task_environment,
-            }
+        results = await multi_agent_system.query(input=prompt, env=task_environment)
 
         if results["final_output"] is None:
             warnings.warn(f"Model output was None for task {user_task.ID}")

@@ -1,6 +1,7 @@
 from mav.MAS.framework import MultiAgentSystem
 from mav.Tasks.task_suite import TaskSuite
 from typing import Sequence
+from tqdm import tqdm
 
 async def benchmark_suite_without_injections(
     multi_agent_system: MultiAgentSystem,
@@ -14,7 +15,7 @@ async def benchmark_suite_without_injections(
     else:
         user_tasks_to_run = suite.user_tasks.values()
 
-    for user_task in user_tasks_to_run:
+    for user_task in tqdm(user_tasks_to_run, desc="Running User Tasks"):
         utility, results = await suite.run_task_with_pipeline(multi_agent_system, user_task)
         suite_results[user_task.ID] = {
             "utility": utility,
