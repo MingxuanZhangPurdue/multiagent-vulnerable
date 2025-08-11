@@ -1,9 +1,7 @@
 from abc import ABC, abstractmethod
-from typing import Any, Callable
+from typing import Any
 from agents import Agent
 from dataclasses import dataclass, field
-from agents import FunctionTool
-from litellm import BaseModel, Field
 from mav.Tasks.base_environment import TaskEnvironment
 from agents import Session
 @dataclass(slots=True)
@@ -15,7 +13,8 @@ class AttackComponents:
 
 class BaseAttack(ABC):
 
-    def __init__(self, attack_config: dict[str, Any] = None):
+    def __init__(self, step: str, attack_config: dict[str, Any] = None):
+        self.step = step
         self.attack_config = attack_config
 
     @abstractmethod

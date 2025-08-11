@@ -10,6 +10,8 @@ from mav.Tasks.base_environment import TaskEnvironment
 from mav.Tasks.utils.yaml_loader import ImportLoader
 from mav.Tasks.base_tasks import BaseUserTask
 from mav.MAS.framework import MultiAgentSystem
+from mav.Attacks import BaseAttack
+from mav.MAS.attack_hooks import AttackHooks
 
 IT = TypeVar("IT")
 
@@ -124,6 +126,11 @@ class TaskSuite(Generic[Env]):
         environment = self.environment_type.model_validate(yaml.safe_load(environment_text))
         return environment
     
+    @lru_cache
+    def get_user_task_by_id(self, task_id: str) -> BaseUserTask[Env]:
+        """Get a user task by its ID."""
+        return self.user_tasks[task_id]
+    
     def _get_task_number(self, task_cls: type[BaseUserTask], prefix: str) -> int:
         match = re.match(rf"{prefix}(\d+)", task_cls.__name__)
         if not match:
@@ -147,6 +154,7 @@ class TaskSuite(Generic[Env]):
         multi_agent_system: MultiAgentSystem,
         user_task: BaseUserTask[Env],
         environment: Env | None = None,
+        attacks: list[BaseAttack] | None = None
     ) -> tuple[bool, bool]:
         # If no environment is provided, load the default environment
         if environment is None:
@@ -162,9 +170,19 @@ class TaskSuite(Generic[Env]):
         if isinstance(user_task, BaseUserTask):
             prompt = user_task.PROMPT
         else:
-            prompt = user_task.GOAL
-            
-        results = await multi_agent_system.query(input=prompt, env=task_environment)
+            raise ValueError(f"User task {user_task.ID} is not a valid BaseUserTask instance")
+        
+        if attacks is not None:
+            attack_hooks = AttackHooks(attacks)
+        else:
+            attack_hooks = None
+
+
+        results = await multi_agent_system.query(
+            input=prompt, 
+            env=task_environment,
+            attack_hooks=attack_hooks
+        )
 
         if results["final_output"] is None:
             warnings.warn(f"Model output was None for task {user_task.ID}")
@@ -224,3 +242,4 @@ class TaskSuite(Generic[Env]):
             functions_stack_trace,
         )
         return utility
+    

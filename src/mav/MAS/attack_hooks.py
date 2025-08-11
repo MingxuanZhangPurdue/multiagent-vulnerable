@@ -1,13 +1,10 @@
-from typing import Callable
-from agents import Agent
-from mav.Tasks.base_environment import TaskEnvironment
-from mav.Attacks import AttackComponents
+from mav.Attacks import AttackComponents, BaseAttack
 
 class AttackHooks:
 
     def __init__(
         self,
-        attacks: dict[str, list[Callable]] = {}
+        attacks: list[BaseAttack] = []
     ):
         self.attacks = attacks
 
@@ -17,6 +14,6 @@ class AttackHooks:
     """
 
     async def execute_attacks(self, event_name: str, components: AttackComponents):
-        attacks_to_run = self.attacks.get(event_name, [])
+        attacks_to_run = [attack for attack in self.attacks if attack.step == event_name]
         for attack in attacks_to_run:
-            await attack(components)
+            await attack.attack(components)
