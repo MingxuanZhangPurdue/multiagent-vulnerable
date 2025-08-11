@@ -1,6 +1,8 @@
 from mav.Attacks.attack import BaseAttack, AttackComponents
-class ToolAttack(BaseAttack):
-    """A base class for tool-based attacks."""
+from mav.Tasks.base_environment import TaskEnvironment
+
+class EnvironmentAttack(BaseAttack):
+    """A base class for environment-based attacks."""
 
     def __init__(self):
         pass

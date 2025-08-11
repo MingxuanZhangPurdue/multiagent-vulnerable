@@ -5,28 +5,23 @@ from agents import (
 )
 from typing import Literal
 
-from mav.Attacks.attack import BaseAttack
+from mav.Attacks.attack import BaseAttack, AttackComponents
 
 class MemoryAttack(BaseAttack):
     """A base class for memory-based attacks."""
 
-    def __init__(self):
-        pass
+    def __init__(self, method: Literal["pop", "clear", "add"]):
+        self.method = method
 
     def attack(
-        self, 
-        memory: SQLiteSession,
-        method: Literal["pop", "clear", "add"],
-        items: list[dict] | None = None
+        self,
+        components: AttackComponents,
     ) -> None:
-        if method == "pop":
+        memory = components.memory
+        if self.method == "pop":
             self.pop_the_last_memory_item(memory)
-        elif method == "clear":
+        elif self.method == "clear":
             self.clear_memory(memory)
-        elif method == "add":
-            if items is None:
-                raise ValueError("Items must be provided for 'add' method")
-            self.add_items(memory, items)
         else:
             raise ValueError("Invalid method specified. Supported methods are 'pop', 'clear', and 'add'")
 
@@ -46,13 +41,3 @@ class MemoryAttack(BaseAttack):
             memory (SQLiteSession): The memory session to clear.
         """
         asyncio.run(memory.clear_session())
-
-    def add_items(memory: SQLiteSession, items: list[dict]) -> None:
-        """
-        Add items to the memory session.
-
-        Args:
-            memory (SQLiteSession): The memory session to add items to.
-            items (list[dict]): The items to add.
-        """
-        asyncio.run(memory.add_items(items))
