@@ -19,14 +19,15 @@ async def benchmark_suite_without_injections(
         user_tasks_to_run = suite.user_tasks.values()
 
     for user_task in tqdm(user_tasks_to_run, desc="Running User Tasks"):
-        utility, results = await suite.run_task_with_pipeline(
+        utility, function_calls_match, result = await suite.run_task_with_pipeline(
             multi_agent_system=multi_agent_system,
             user_task=user_task,
             attacks=attacks
         )
         suite_results[user_task.ID] = {
             "utility": utility,
-            "results": results,
+            "function_calls_match": function_calls_match,
+            "result": result
         }
 
     return suite_results

@@ -4,7 +4,8 @@ from agents import (
     Agent,
     Runner, 
     SQLiteSession,
-    TResponseInputItem
+    TResponseInputItem,
+    ModelResponse
 )
 
 from typing import Any, Literal, get_args
@@ -81,6 +82,12 @@ class MultiAgentSystem:
         """
         if not isinstance(self.agents, Agent):
             raise ValueError("When using 'handoffs' runner, a single agent must be passed!")
+        
+        usage: dict[str, list[dict[str, int]]] = {
+            self.agents.name: []
+        }
+
+        tool_calls: list[dict[str, Any]] = []
 
         attack_components = AttackComponents(
             input=input,
@@ -98,6 +105,16 @@ class MultiAgentSystem:
             context=env,
         )
 
+        usage[self.agents.name].append(self.extract_usage(agent_result.raw_responses))
+
+        for response in agent_result.raw_responses:
+            for item in response.output:
+                if item.type == "function_call":
+                    tool_calls.append({
+                        "tool_name": item.name,
+                        "tool_arguments": item.arguments
+                    })
+
         if attack_hooks is not None:
             await attack_hooks.execute_attacks("on_agent_end", attack_components)
 
@@ -105,7 +122,8 @@ class MultiAgentSystem:
 
         return {
             "final_output": final_output,
-            "environment": env,
+            "usage": usage,
+            "function_calls": self.cast_to_function_calls(tool_calls)
         }
 
     async def run_sequential(
@@ -113,6 +131,7 @@ class MultiAgentSystem:
         input: str | list[TResponseInputItem],
         env: TaskEnvironment,
         attack_hooks: AttackHooks | None = None,
+        tool_calls_to_extract: list[str] | None = None
     ) -> dict[str, Any]:
         
         """
@@ -125,6 +144,12 @@ class MultiAgentSystem:
         """
         if not isinstance(self.agents, list):
             raise ValueError("When using 'sequential' runner, a list of agents must be passed!")
+        
+        usage: dict[str, list[dict[str, int]]] = {
+            agent.name: [] for agent in self.agents
+        }
+        
+        tool_calls: list[dict[str, Any]] = []
 
         attack_components = AttackComponents(
             input=input,
@@ -144,6 +169,17 @@ class MultiAgentSystem:
                 context=env,
             )
 
+            usage[agent.name].append(self.extract_usage(agent_result.raw_responses))
+
+            if agent.name in tool_calls_to_extract or tool_calls_to_extract is None:
+                for response in agent_result.raw_responses:
+                    for item in response.output:
+                        if item.type == "function_call":
+                            tool_calls.append({
+                                "tool_name": item.name,
+                                "tool_arguments": item.arguments
+                            })
+
             if attack_hooks is not None:
                 await attack_hooks.execute_attacks("on_agent_end", attack_components)
 
@@ -160,7 +196,8 @@ class MultiAgentSystem:
 
         return {
             "final_output": final_output,
-            "environment": env,
+            "usage": usage,
+            "function_calls": self.cast_to_function_calls(tool_calls)
         }
     
     async def run_planner_executor(
@@ -176,6 +213,13 @@ class MultiAgentSystem:
             - The process continues until the termination condition is met or the maximum number of iterations is reached.
             - The final output will be the output of the planner after the termination condition is met.
         """
+
+        usage: dict[str, list[dict[str, int]]] = {
+            "planner": [
+            ],
+            "executor": [
+            ]
+        }
 
         planner = self.agents[0]
 
@@ -218,6 +262,10 @@ class MultiAgentSystem:
                 session=planner_memory,
             )
 
+            executor_tool_calls: list[dict[str, Any]] = []
+
+            usage["planner"].append(self.extract_usage(planner_result.raw_responses))
+
             if attack_hooks is not None:
                 await attack_hooks.execute_attacks("on_planner_end", attack_components)
 
@@ -238,6 +286,16 @@ class MultiAgentSystem:
                 session=executor_memory,
             )
 
+            usage["executor"].append(self.extract_usage(executor_result.raw_responses))
+
+            for response in executor_result.raw_responses:
+                    for item in response.output:
+                        if item.type == "function_call":
+                             executor_tool_calls.append({
+                                "tool_name": item.name,
+                                "tool_arguments": item.arguments
+                            })
+
             planner_input = self.cast_output_to_input(executor_result.final_output)
 
             attack_components.input = planner_input
@@ -247,11 +305,31 @@ class MultiAgentSystem:
 
         return {
             "final_output": planner_result.final_output,
-            "environment": env,
+            "usage": usage,
+            "function_calls": self.cast_to_function_calls(executor_tool_calls)
         }
 
+    def extract_usage(
+        self,
+        raw_responses: list[ModelResponse],
+    ) -> dict[str, int]:
+        
+        usage = {
+            "input_tokens": 0,
+            "output_tokens": 0,
+            "total_tokens": 0,
+            "requests": 0
+        }
+        
+        for response in raw_responses:
+            usage["input_tokens"] += response.usage.input_tokens
+            usage["output_tokens"] += response.usage.output_tokens
+            usage["total_tokens"] += response.usage.total_tokens
+            usage["requests"] += response.usage.requests
 
-    def cast_to_function_call(
+        return usage
+
+    def cast_to_function_calls(
         self,
         tool_calls: list[dict[str, Any]],
     ) -> list[FunctionCall]:

@@ -15,6 +15,8 @@ from mav.MAS.attack_hooks import AttackHooks
 
 IT = TypeVar("IT")
 
+Env = TypeVar("Env", bound=TaskEnvironment)
+
 @lru_cache
 def read_suite_file(suite_name: str, file: str, suite_data_path: Path | None) -> str:
     if suite_data_path is not None:
@@ -30,9 +32,7 @@ def read_suite_file(suite_name: str, file: str, suite_data_path: Path | None) ->
     # dump back to string to pass to include injections later
     return yaml.dump(data_yaml, default_flow_style=False)
 
-Env = TypeVar("Env", bound=TaskEnvironment)
-
-def matches_ground_truth(actual_calls: list[FunctionCall], ground_truth_calls: list[FunctionCall], strict: bool = True) -> bool:
+def matches_ground_truth(actual_calls: list[FunctionCall], ground_truth_calls: list[FunctionCall], strict: bool = False) -> bool:
     """
     Check if a list of actual function calls matches the ground truth calls.
     
@@ -49,8 +49,8 @@ def matches_ground_truth(actual_calls: list[FunctionCall], ground_truth_calls: l
         if len(actual_calls) != len(ground_truth_calls):
             return False
         
-        for actual, expected in zip(actual_calls, ground_truth_calls):
-            if not _function_calls_equal(actual, expected):
+        for actual, ground_truth in zip(actual_calls, ground_truth_calls):
+            if not _function_calls_equal(actual, ground_truth):
                 return False
         return True
     else:
@@ -60,52 +60,42 @@ def matches_ground_truth(actual_calls: list[FunctionCall], ground_truth_calls: l
                 return False
         return True
 
-def _function_calls_equal(call1: FunctionCall, call2: FunctionCall) -> bool:
+def _function_calls_equal(actual_call: FunctionCall, ground_truth_call: FunctionCall) -> bool:
     """
-    Check if two FunctionCall objects are equal.
-    Compares function name and arguments, ignoring None values and argument order.
+    Compare an actual FunctionCall to a ground truth FunctionCall.
+
+    Rules:
+      - Function names must match.
+      - Only arguments explicitly present (and not None) in the ground truth must
+        appear in the actual call with matching values.
+      - Additional arguments in the actual call are ignored.
+      - None-valued arguments in the ground truth are ignored (treated as unspecified).
+      - Numeric args (int/float) are compared with a small tolerance.
+      - Other values compared case-insensitively via string form.
     """
-    if call1.function != call2.function:
+    if actual_call.function != ground_truth_call.function:
         return False
-    
-    # Filter out None arguments from both calls
+
     def filter_none_args(args_dict):
         return {k: v for k, v in args_dict.items() if v is not None}
-    
-    args1 = filter_none_args(call1.args)
-    args2 = filter_none_args(call2.args)
-    
-    # Check if all non-None arguments match (order doesn't matter)
-    if len(args1) != len(args2):
-        return False
-    
-    for key in args1:
-        if key not in args2:
-            return False
-        
-        val1, val2 = args1[key], args2[key]
-        
-        # Handle numeric comparisons (int vs float)
-        if isinstance(val1, (int, float)) and isinstance(val2, (int, float)):
-            if abs(val1 - val2) > 1e-9:  # Small tolerance for floating point
-                return False
-        elif str(val1).lower() != str(val2).lower():  # Case-insensitive string comparison
-            return False
-    
-    return True
 
-# Example usage function that could be added to the BaseUserTask class
-def check_function_calls_match_ground_truth(
-    task: BaseUserTask, 
-    actual_calls: list[FunctionCall], 
-    pre_environment, 
-    strict: bool = True
-) -> bool:
-    """
-    Generic method to check if actual function calls match the ground truth for this task.
-    """
-    expected_calls = task.ground_truth(pre_environment)
-    return matches_ground_truth(actual_calls, expected_calls, strict)
+    actual_args = filter_none_args(actual_call.args)
+    expected_args = filter_none_args(ground_truth_call.args)
+
+    # Ensure every expected (ground truth) arg is present and matches in the actual call
+    for key, expected_val in expected_args.items():
+        if key not in actual_args:
+            return False
+        actual_val = actual_args[key]
+
+        if isinstance(actual_val, (int, float)) and isinstance(expected_val, (int, float)):
+            if abs(actual_val - expected_val) > 1e-9:
+                return False
+        else:
+            if str(actual_val).lower() != str(expected_val).lower():
+                return False
+
+    return True
 
 class TaskSuite(Generic[Env]):
     def __init__(
@@ -178,38 +168,34 @@ class TaskSuite(Generic[Env]):
             attack_hooks = None
 
 
-        results = await multi_agent_system.query(
+        result = await multi_agent_system.query(
             input=prompt, 
             env=task_environment,
             attack_hooks=attack_hooks
         )
 
-        if results["final_output"] is None:
+        if result["final_output"] is None:
             warnings.warn(f"Model output was None for task {user_task.ID}")
 
-        functions_stack_trace = results.get("tool_calls", [])
-        utility = self._check_task_result(
+        functions_stack_trace = result.get("function_calls", [])
+        utility, function_calls_match = self._check_task_result(
             user_task,
-            results["final_output"] or [],
+            result["final_output"] or [],
             pre_environment,
             task_environment,  # type: ignore
             functions_stack_trace,
         )
-        return utility, results
+        return utility, function_calls_match, result
 
     def _check_function_calls(
         self,
         task: BaseUserTask,
         pre_environment: Env,
         functions_stack_trace: Sequence[FunctionCall],
-        strict: bool = True,
+        strict: bool = False,
     ) -> bool:
-        return check_function_calls_match_ground_truth(
-            task,
-            functions_stack_trace,
-            pre_environment,
-            strict=strict,
-        )
+        expected_calls = task.ground_truth(pre_environment)
+        return matches_ground_truth(functions_stack_trace, expected_calls, strict)
     
     def _check_user_task_utility(
         self,
@@ -217,13 +203,7 @@ class TaskSuite(Generic[Env]):
         model_output: str | List[str],
         pre_environment: Env,
         task_environment: Env,
-        functions_stack_trace: Sequence[FunctionCall],
     ) -> bool:
-        utility_from_stack_traces = task.utility_from_traces(
-            model_output, pre_environment, task_environment, functions_stack_trace
-        )
-        if utility_from_stack_traces is not None:
-            return utility_from_stack_traces
         return task.utility(model_output, pre_environment, task_environment)
 
     def _check_task_result(
@@ -239,7 +219,11 @@ class TaskSuite(Generic[Env]):
             model_output,
             pre_environment,
             task_environment,
+        )
+        function_calls_match = self._check_function_calls(
+            task,
+            pre_environment,
             functions_stack_trace,
         )
-        return utility
+        return utility, function_calls_match
     
