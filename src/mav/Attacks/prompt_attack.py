@@ -3,16 +3,17 @@ from mav.Attacks.attack import BaseAttack, AttackComponents
 
 
 class PromptAttack(BaseAttack):
-    """A base class for prompt-based attacks."""
 
-    """
-    config: {
-        "method": "front" | "back",
-        "injection": str
-    }
-    """
+    """Prompt-based attacks"""
 
-    async def attack(self, components: AttackComponents) -> None:
+    def attack(self, components: AttackComponents) -> None:
+
+        """
+        config: {
+            "method": Literal["front", "back"], # default is "back"
+            "injection": str, # default is ""
+        }
+        """
 
         method = self.attack_config.get("method", "back")
 

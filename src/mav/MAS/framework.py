@@ -15,7 +15,7 @@ from mav.MAS.terminations import BaseTermination
 from mav.items import FunctionCall
 from mav.Tasks.base_environment import TaskEnvironment
 from mav.MAS.terminations import BaseTermination
-from mav.MAS.attack_hooks import AttackHooks
+from mav.MAS.attack_hooks import execute_attacks, AttackHook
 from mav.Attacks.attack import AttackComponents
 
 class MultiAgentSystem:
@@ -27,7 +27,7 @@ class MultiAgentSystem:
         agents: Agent | list[Agent],
         runner: RunnerType,
         termination_condition: list[BaseTermination] | None = None,
-        max_iterations: int = 1000,
+        max_iterations: int = 10,
         enable_executor_memory: bool = True,
     ):
         if runner == "handoffs" and not isinstance(agents, Agent):
@@ -59,7 +59,7 @@ class MultiAgentSystem:
         self,
         input: str | list[TResponseInputItem],
         env: TaskEnvironment,
-        attack_hooks: AttackHooks | None = None,
+        attack_hooks: list[AttackHook] | None = None,
     ):
         
         if self.runner == "handoffs":
@@ -73,7 +73,7 @@ class MultiAgentSystem:
         self,
         input: str | list[TResponseInputItem],
         env: TaskEnvironment,
-        attack_hooks: AttackHooks | None = None,
+        attack_hooks: list[AttackHook] | None = None,
     ) -> dict[str, Any]:
         
         """
@@ -91,19 +91,25 @@ class MultiAgentSystem:
 
         attack_components = AttackComponents(
             input=input,
+            final_output=None,
             memory_dict={},
             agent_dict={self.agents.name: self.agents},
             env=env
         )
 
         if attack_hooks is not None:
-            await attack_hooks.execute_attacks("on_agent_start", attack_components)
+            execute_attacks(attack_hooks=attack_hooks, event_name="on_agent_start", iteration=0, components=attack_components)
 
         agent_result = await Runner.run(
             starting_agent=self.agents,
             input=attack_components.input,
             context=env,
         )
+
+        attack_components.final_output = agent_result.final_output
+
+        if attack_hooks is not None:
+            execute_attacks(attack_hooks=attack_hooks, event_name="on_agent_end", iteration=0, components=attack_components)
 
         usage[self.agents.name].append(self.extract_usage(agent_result.raw_responses))
 
@@ -115,13 +121,8 @@ class MultiAgentSystem:
                         "tool_arguments": item.arguments
                     })
 
-        if attack_hooks is not None:
-            await attack_hooks.execute_attacks("on_agent_end", attack_components)
-
-        final_output = agent_result.final_output
-
         return {
-            "final_output": final_output,
+            "final_output": attack_components.final_output,
             "usage": usage,
             "function_calls": self.cast_to_function_calls(tool_calls)
         }
@@ -130,7 +131,7 @@ class MultiAgentSystem:
         self,
         input: str | list[TResponseInputItem],
         env: TaskEnvironment,
-        attack_hooks: AttackHooks | None = None,
+        attack_hooks: list[AttackHook] | None = None,
         tool_calls_to_extract: list[str] | None = None
     ) -> dict[str, Any]:
         
@@ -153,21 +154,29 @@ class MultiAgentSystem:
 
         attack_components = AttackComponents(
             input=input,
+            final_output=None,
             memory_dict={},
             agent_dict={agent.name: agent for agent in self.agents},
             env=env
         )
 
+        iteration = 0
+
         for agent in self.agents:
 
             if attack_hooks is not None:
-                await attack_hooks.execute_attacks("on_agent_start", attack_components)
+                execute_attacks(attack_hooks=attack_hooks, event_name="on_agent_start", iteration=iteration, components=attack_components)
 
             agent_result = await Runner.run(
                 starting_agent=agent,
                 input=attack_components.input,
                 context=env,
             )
+
+            attack_components.final_output = agent_result.final_output
+
+            if attack_hooks is not None:
+                execute_attacks(attack_hooks=attack_hooks, event_name="on_agent_end", iteration=iteration, components=attack_components)
 
             usage[agent.name].append(self.extract_usage(agent_result.raw_responses))
 
@@ -180,22 +189,13 @@ class MultiAgentSystem:
                                 "tool_arguments": item.arguments
                             })
 
-            if attack_hooks is not None:
-                await attack_hooks.execute_attacks("on_agent_end", attack_components)
-
             # The final output from the current agent will be used as input for the next agent
-            if agent_result.final_output:
-                attack_components.input = agent_result.final_output
-            else:
-                # If the agent does not produce a final output, we use the initial input for the next agent
-                attack_components.input = input
+            attack_components.input = agent_result.final_output
 
-            attack_components.input
-
-        final_output = agent_result.final_output
+            iteration += 1
 
         return {
-            "final_output": final_output,
+            "final_output": attack_components.final_output,
             "usage": usage,
             "function_calls": self.cast_to_function_calls(tool_calls)
         }
@@ -204,7 +204,7 @@ class MultiAgentSystem:
         self,
         input: str | list[TResponseInputItem],
         env: TaskEnvironment,
-        attack_hooks: AttackHooks | None = None,
+        attack_hooks: list[AttackHook] | None = None,
     ) -> dict[str, Any]:
         """
         Runs the agents in a planner-executor manner:
@@ -231,12 +231,11 @@ class MultiAgentSystem:
 
         executor_memory = SQLiteSession(session_id="executor_memory") if self.enable_executor_memory else None
 
-        planner_input = input
-
-        executor_input = None
+        executor_tool_calls: list[dict[str, Any]] = []
 
         attack_components = AttackComponents(
             input=input,
+            output=None,
             memory_dict={
                 "planner": planner_memory,
                 "executor": executor_memory
@@ -248,12 +247,10 @@ class MultiAgentSystem:
             env=env
         )
 
-        while True and iteration < self.max_iterations:  # Prevent infinite loops
-
-            iteration += 1
+        while iteration < self.max_iterations:  # Prevent infinite loops
 
             if attack_hooks is not None:
-                await attack_hooks.execute_attacks("on_planner_start", attack_components)
+                execute_attacks(attack_hooks=attack_hooks, event_name="on_planner_start", iteration=iteration, components=attack_components)
 
             planner_result = await Runner.run(
                 starting_agent=planner,
@@ -262,29 +259,32 @@ class MultiAgentSystem:
                 session=planner_memory,
             )
 
-            executor_tool_calls: list[dict[str, Any]] = []
-
-            usage["planner"].append(self.extract_usage(planner_result.raw_responses))
+            attack_components.final_output = planner_result.final_output
 
             if attack_hooks is not None:
-                await attack_hooks.execute_attacks("on_planner_end", attack_components)
+                execute_attacks(attack_hooks=attack_hooks, event_name="on_planner_end", iteration=iteration, components=attack_components)
+
+            usage["planner"].append(self.extract_usage(planner_result.raw_responses))
 
             if self.termination_condition(iteration=iteration, results=planner_result.to_input_list()):
                 break
 
-            executor_input = self.cast_output_to_input(planner_result.final_output)
-
-            attack_components.input = executor_input
+            attack_components.input = self.cast_output_to_input(planner_result.final_output)
 
             if attack_hooks is not None:
-                await attack_hooks.execute_attacks("on_executor_start", attack_components)
+                execute_attacks(attack_hooks=attack_hooks, event_name="on_executor_start", iteration=iteration, components=attack_components)
 
             executor_result = await Runner.run(
                 executor,
-                input=executor_input,
+                input=attack_components.input,
                 context=env,
                 session=executor_memory,
             )
+
+            attack_components.final_output = executor_result.final_output
+
+            if attack_hooks is not None:
+                execute_attacks(attack_hooks=attack_hooks, event_name="on_executor_end", iteration=iteration, components=attack_components)
 
             usage["executor"].append(self.extract_usage(executor_result.raw_responses))
 
@@ -296,12 +296,9 @@ class MultiAgentSystem:
                                 "tool_arguments": item.arguments
                             })
 
-            planner_input = self.cast_output_to_input(executor_result.final_output)
+            attack_components.input = self.cast_output_to_input(executor_result.final_output)
 
-            attack_components.input = planner_input
-
-            if attack_hooks is not None:
-                await attack_hooks.execute_attacks("on_executor_end", attack_components)
+            iteration += 1
 
         return {
             "final_output": planner_result.final_output,

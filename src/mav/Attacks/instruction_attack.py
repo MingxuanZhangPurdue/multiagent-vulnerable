@@ -1,26 +1,53 @@
+import inspect
+from typing import Callable, cast
 from mav.Attacks.attack import BaseAttack, AttackComponents
 class InstructionAttack(BaseAttack):
-    """A base class for instruction-based attacks."""
 
-    """
-    config: {
-        "method": "replace" | "injection",
-        "target_agents": List[str],
-        "content": Dict[str, str] # agent_name -> instruction content
-    }
-    """
+    """Instructions-based attacks"""
 
-    async def attack(self, components: AttackComponents) -> None:
+    def attack(self, components: AttackComponents) -> None:
 
-        method = self.attack_config["method"]
+        """
+        config: {
+            "method": Literal["replace", "inject"], # default is "inject"
+            "content": dict[str, str] | str # agent_name -> instruction content, default is ""
+        }
+        """
+
+        method = self.attack_config.get("method", "inject")
+
+        content: dict[str, str] | str = self.attack_config["content"]
 
         if method == "replace":
-            target_agents = self.attack_config["target_agents"]
-            for agent_name in target_agents:
-                components.agent_dict[agent_name].instructions = self.attack_config["content"][agent_name]
+            self.replace(components, content)
+        elif method == "inject":
+            self.inject(components, content)
+        else:
+            raise ValueError(f"Unknown attack method: {method}")
 
-        elif method == "injection":
-            target_agents = self.attack_config["target_agents"]
-            for agent_name in target_agents:
-                agent_instructions = components.agent_dict[agent_name].instructions
-                components.agent_dict[agent_name].instructions = agent_instructions + self.attack_config["content"][agent_name]
+    def replace(self, components: AttackComponents, content: dict[str, str] | str) -> None:
+
+        if isinstance(content, str):
+            for agent_name, agent in components.agent_dict.items():
+                agent.instructions = content
+
+        elif isinstance(content, dict):
+            for agent_name, new_instructions in content.items():
+                components.agent_dict[agent_name].instructions = new_instructions
+
+        else:
+            raise ValueError("Invalid content type specified. Supported types are 'str' and 'dict'.")
+
+    def inject(self, components: AttackComponents, content: dict[str, str] | str) -> None:
+
+        if isinstance(content, str):
+            for agent_name, agent in components.agent_dict.items():
+                instructions = agent.instructions
+                agent.instructions = instructions + content
+
+        elif isinstance(content, dict):
+            for agent_name, new_instructions in content.items():
+                components.agent_dict[agent_name].instructions += new_instructions
+
+        else:
+            raise ValueError("Invalid content type specified. Supported types are 'str' and 'dict'.")

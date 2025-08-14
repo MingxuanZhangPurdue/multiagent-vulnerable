@@ -1,9 +1,15 @@
 from abc import ABC, abstractmethod
-from typing import List, Dict, Any, Union, Optional
+from typing import List, Dict, Any
+from mav.Tasks.base_environment import TaskEnvironment
+from mav.Tasks.web.environment import ActionTypes
 
 class BaseTermination(ABC):
     @abstractmethod
-    def __call__(self, iteration: int, results: List[Dict[str, Any]] | None) -> bool:
+    def __call__(self, 
+            iteration: int | None = None, 
+            results: List[Dict[str, Any]] | None = None, 
+            env: TaskEnvironment | None = None
+    ) -> bool:
         """Check if the termination condition is met.
         Returns:
             bool: True if the termination condition is met, False otherwise.
@@ -18,7 +24,11 @@ class AndTermination(BaseTermination):
             raise ValueError("At least one condition must be provided")
         self.conditions = conditions
 
-    def __call__(self, iteration: int, results: List[Dict[str, Any]] | None) -> bool:
+    def __call__(self, 
+            iteration: int | None = None, 
+            results: List[Dict[str, Any]] | None = None, 
+            env: TaskEnvironment | None = None
+    ) -> bool:
         return all(condition(iteration, results) for condition in self.conditions)
 
 class OrTermination(BaseTermination):
@@ -29,7 +39,11 @@ class OrTermination(BaseTermination):
             raise ValueError("At least one condition must be provided")
         self.conditions = conditions
 
-    def __call__(self, iteration: int, results: List[Dict[str, Any]] | None) -> bool:
+    def __call__(self, 
+            iteration: int | None = None, 
+            results: List[Dict[str, Any]] | None = None, 
+            env: TaskEnvironment | None = None
+    ) -> bool:
         return any(condition(iteration, results) for condition in self.conditions)
 
 class MaxIterationsTermination(BaseTermination):
@@ -40,7 +54,11 @@ class MaxIterationsTermination(BaseTermination):
             raise ValueError("max_iterations must be positive")
         self.max_iterations = max_iterations
 
-    def __call__(self, iteration: int, results: List[Dict[str, Any]] | None) -> bool:
+    def __call__(self, 
+            iteration: int | None = None, 
+            results: List[Dict[str, Any]] | None = None, 
+            env: TaskEnvironment | None = None
+    ) -> bool:
         return iteration >= self.max_iterations
     
 class MessageTermination(BaseTermination):
@@ -49,7 +67,11 @@ class MessageTermination(BaseTermination):
     def __init__(self, termination_message: str):
         self.termination_message = termination_message
     
-    def __call__(self, iteration: int, results: List[Dict[str, Any]] | None) -> bool:
+    def __call__(self, 
+            iteration: int | None = None, 
+            results: List[Dict[str, Any]] | None = None, 
+            env: TaskEnvironment | None = None
+    ) -> bool:
         if results is None or not results:
             return False
         
@@ -68,4 +90,24 @@ class MessageTermination(BaseTermination):
                 for item in content
             )
         
+        return False
+    
+class WebAgentTermination(BaseTermination):
+    """
+    A specialized termination condition for web agents.
+    """
+    def __init__(self, termination_message: str):
+        self.termination_message = termination_message
+    
+    def __call__(self, 
+        iteration: int | None = None, 
+        results: List[Dict[str, Any]] | None = None, 
+        env: TaskEnvironment | None = None
+    ) -> bool:
+        
+        if env is None:
+            raise ValueError("A valid TaskEnvironment must be provided for WebAgentTermination")
+        
+        if env.trajectory[-1]["action_type"] == ActionTypes.STOP:
+            return True
         return False
