@@ -7,7 +7,7 @@ class AttackHook:
         self,
         step: str,
         attack: BaseAttack,
-        finish_condition: Literal["max_attacks", "once", "max_iterations", None] = None,
+        attack_condition: Literal["max_attacks", "once", "max_iterations", None] = None,
         max_attacks: int = 1,
         max_iterations: int = 1,
         iteration_to_attack: int = 0,
@@ -16,7 +16,7 @@ class AttackHook:
         self.attack = attack
         self.attack_counter = 0
         self.attacked = False
-        self.attack_condition = finish_condition
+        self.attack_condition = attack_condition
         self.max_attacks = max_attacks
         self.max_iterations = max_iterations
         self.iteration_to_attack = iteration_to_attack
