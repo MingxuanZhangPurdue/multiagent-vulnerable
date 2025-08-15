@@ -7,7 +7,7 @@ from mav.Tasks.task_combinator import TaskCombinator
 
 SlackUserTask = BaseUserTask[SlackEnvironment]
 
-@task_suite.register_user_task
+@task_suite.register_user_task()
 class UserTask0(SlackUserTask):
     DIFFICULTY = TaskDifficulty.EASY
 
@@ -29,7 +29,7 @@ class UserTask0(SlackUserTask):
         return self.URL in post_environment.web.web_requests
 
 
-@task_suite.register_user_task
+@task_suite.register_user_task()
 class UserTask1(SlackUserTask):
     DIFFICULTY = TaskDifficulty.MEDIUM
 
@@ -64,7 +64,7 @@ class UserTask1(SlackUserTask):
         return True
 
 
-@task_suite.register_user_task
+@task_suite.register_user_task()
 class UserTask2(SlackUserTask):
     DIFFICULTY = TaskDifficulty.MEDIUM
 
@@ -92,7 +92,7 @@ class UserTask2(SlackUserTask):
         return True
 
 
-@task_suite.register_user_task
+@task_suite.register_user_task()
 class UserTask3(SlackUserTask):
     DIFFICULTY = TaskDifficulty.MEDIUM
 
@@ -125,7 +125,7 @@ class UserTask3(SlackUserTask):
         return True
 
 
-@task_suite.register_user_task
+@task_suite.register_user_task()
 class UserTask4(SlackUserTask):
     DIFFICULTY = TaskDifficulty.HARD
 
@@ -163,7 +163,7 @@ class UserTask4(SlackUserTask):
         return True
 
 
-@task_suite.register_user_task
+@task_suite.register_user_task()
 class UserTask5(SlackUserTask):
     DIFFICULTY = TaskDifficulty.HARD
 
@@ -202,7 +202,7 @@ class UserTask5(SlackUserTask):
         return True
 
 
-@task_suite.register_user_task
+@task_suite.register_user_task()
 class UserTask6(SlackUserTask):
     DIFFICULTY = TaskDifficulty.MEDIUM
 
@@ -230,7 +230,7 @@ class UserTask6(SlackUserTask):
         return True
 
 
-@task_suite.register_user_task
+@task_suite.register_user_task()
 class UserTask7(SlackUserTask):
     DIFFICULTY = TaskDifficulty.EASY
 
@@ -266,7 +266,7 @@ class UserTask7(SlackUserTask):
         return True
 
 
-@task_suite.register_user_task
+@task_suite.register_user_task()
 class UserTask8(SlackUserTask):
     DIFFICULTY = TaskDifficulty.MEDIUM
 
@@ -302,7 +302,7 @@ class UserTask8(SlackUserTask):
         return True
 
 
-@task_suite.register_user_task
+@task_suite.register_user_task()
 class UserTask9(SlackUserTask):
     DIFFICULTY = TaskDifficulty.MEDIUM
 
@@ -341,7 +341,7 @@ class UserTask9(SlackUserTask):
         return True
 
 
-@task_suite.register_user_task
+@task_suite.register_user_task()
 class UserTask10(SlackUserTask):
     DIFFICULTY = TaskDifficulty.HARD
 
@@ -392,7 +392,7 @@ class UserTask10(SlackUserTask):
         return True
 
 
-@task_suite.register_user_task
+@task_suite.register_user_task()
 class UserTask11(SlackUserTask):
     DIFFICULTY = TaskDifficulty.HARD
 
@@ -448,7 +448,7 @@ class UserTask11(SlackUserTask):
         raise NotImplementedError("")
 
 
-@task_suite.register_user_task
+@task_suite.register_user_task()
 class UserTask12(SlackUserTask):
     DIFFICULTY = TaskDifficulty.EASY
 
@@ -490,7 +490,7 @@ class UserTask12(SlackUserTask):
         return False
 
 
-@task_suite.register_user_task
+@task_suite.register_user_task()
 class UserTask13(SlackUserTask):
     DIFFICULTY = TaskDifficulty.HARD
     BOT_MSG = "Congrats on being the most active user!"
@@ -532,7 +532,7 @@ class UserTask13(SlackUserTask):
         return True
 
 
-@task_suite.register_user_task
+@task_suite.register_user_task()
 class UserTask14(SlackUserTask):
     DIFFICULTY = TaskDifficulty.HARD
     BOT_MSG = "Congrats on being the k-th most active user!"
@@ -592,7 +592,7 @@ class UserTask14(SlackUserTask):
         return True
 
 
-@task_suite.register_user_task
+@task_suite.register_user_task()
 class UserTask15(SlackUserTask):
     DIFFICULTY = TaskDifficulty.MEDIUM
 
@@ -628,7 +628,7 @@ class UserTask15(SlackUserTask):
         return True
 
 
-@task_suite.register_user_task
+@task_suite.register_user_task()
 class UserTask16(SlackUserTask):
     DIFFICULTY = TaskDifficulty.MEDIUM
 

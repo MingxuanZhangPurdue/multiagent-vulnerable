@@ -10,7 +10,7 @@ import os
 import asyncio
 from dotenv import load_dotenv
 
-# Add the src directory to Python path
+# Add the src directory to Pythofn path
 sys.path.append(os.path.join(os.path.dirname(os.getcwd()), "src"))
 
 from mav.Tasks.load_task_suites import get_suite

@@ -83,5 +83,5 @@ TravelDeepDiff = partial(DeepDiff, exclude_paths=deepdiff_paths_to_exclude)
 travel_task_suite = TaskSuite[TravelEnvironment](
     tools=tools,
     name="travel",
-    environment_type=TravelEnvironment,
+    environment_type=TravelEnvironment
 )

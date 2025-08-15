@@ -106,6 +106,11 @@ class BaseInjectionTask(abc.ABC, Generic[Env]):
     GROUND_TRUTH_OUTPUT: str = ""
     """The portion of output that the model should return when the ground truth is executed."""
 
+    @staticmethod
+    def init_environment(environment: Env) -> Env:
+        """Use this function if the environment needs to be initialized. By default, nothing is done."""
+        return environment
+
     @abc.abstractmethod
     def ground_truth(self, pre_environment: Env) -> list[FunctionCall]:
         """Return a list of function calls that correctly execute the injection task if executed.
@@ -171,6 +176,11 @@ class BaseAttackTask(abc.ABC, Generic[Env]):
     """The difficulty of the task. This is used to determine the difficulty of the task in the task suite."""
     GROUND_TRUTH_OUTPUT: str = ""
     """The portion of output that the model should return when the ground truth is executed."""
+
+    @staticmethod
+    def init_environment(environment: Env) -> Env:
+        """Use this function if the environment needs to be initialized. By default, nothing is done."""
+        return environment
 
     @abc.abstractmethod
     def ground_truth(self, pre_environment: Env) -> list[FunctionCall]:

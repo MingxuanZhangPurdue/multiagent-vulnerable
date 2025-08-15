@@ -8,7 +8,7 @@ from typing import Generic, TypeVar, Callable, List, Sequence
 from mav.items import FunctionCall
 from mav.Tasks.base_environment import TaskEnvironment
 from mav.Tasks.utils.yaml_loader import ImportLoader
-from mav.Tasks.base_tasks import BaseUserTask
+from mav.Tasks.base_tasks import BaseUserTask, BaseAttackTask
 from mav.MAS.framework import MultiAgentSystem
 from mav.Attacks import BaseAttack
 from mav.MAS.attack_hook import AttackHook
@@ -104,12 +104,19 @@ class TaskSuite(Generic[Env]):
         environment_type: type[Env],
         tools: List[Callable],
         data_path: Path | None = None,
+        type: str | None = None,
     ):
         self.name = name
         self.environment_type = environment_type
         self.tools = tools
         self.user_tasks: dict[str, BaseUserTask[Env]] = defaultdict(dict)
         self.data_path = data_path
+        self.type = type
+    
+    def _load_tasks_by_type(self, type: str):
+        for task in self.user_tasks.values():
+            if task.type == type:
+                self.user_tasks[task.ID] = task
 
     def load_default_environment(self) -> Env:
         environment_text = read_suite_file(self.name, "environment.yaml", self.data_path)
@@ -127,17 +134,45 @@ class TaskSuite(Generic[Env]):
             raise ValueError(f"User tasks must be named {prefix} followed by a number, got {task_cls.__name__}")
         return int(match.group(1))
 
-    def register_user_task(self, task: type[BaseUserTask[Env]]) -> type[BaseUserTask[Env]]:
+    def register_user_task(self, task_type: str | None = None) -> type[BaseUserTask[Env]]:
         """Register a user task in the suite.
 
         Args:
             task: The user task class to register.
         """
-        task_n = self._get_task_number(task, "UserTask")
-        task_id = f"user_task_{task_n}"
-        setattr(task, "ID", task_id)
-        self.user_tasks[task_id] = task()
-        return task
+        if task_type is None:
+            def simple_decorator(task: type[BaseUserTask[Env]]) -> type[BaseUserTask[Env]]:
+                task_n = self._get_task_number(task, "UserTask")
+                task_id = f"user_task_{task_n}"
+                setattr(task, "ID", task_id)
+                setattr(task, "type", "user_task")
+                self.user_tasks[task_id] = task()
+                return task
+            return simple_decorator
+
+        def register_task(task: type[BaseUserTask[Env]]):
+            if task_type == "harmful":
+                prefix = "HarmfulBehaviorTask"
+                task_n = self._get_task_number(task, prefix)
+                task_id = f"harmful_task_{task_n}"
+            elif task_type == "privacy":
+                prefix = "PrivacyTask"
+                task_n = self._get_task_number(task, prefix)
+                task_id = f"privacy_task_{task_n}"
+            elif task_type == "exhaustion":
+                prefix = "ExhaustionTask"
+                task_n = self._get_task_number(task, prefix)
+                task_id = f"exhaustion_task_{task_n}"
+            else:
+                raise ValueError(f"Unknown task type: {task_type}")
+
+            task_n = self._get_task_number(task, prefix)
+            task_id = f"user_task_{task_n}"
+            setattr(task, "ID", task_id)
+            setattr(task, "type", task_type)
+            self.user_tasks[task_id] = task()
+            return task
+        return register_task
     
     async def run_task_with_pipeline(
         self,
@@ -205,6 +240,15 @@ class TaskSuite(Generic[Env]):
         task_environment: Env,
     ) -> bool:
         return task.utility(model_output, pre_environment, task_environment)
+    
+    def _check_user_attack_task_utility(
+        self,
+        task: BaseUserTask,
+        model_output: str | List[str],
+        pre_environment: Env,
+        task_environment: Env,
+    ) -> bool:
+        return task.security(model_output, pre_environment, task_environment)
 
     def _check_task_result(
         self,
@@ -226,4 +270,67 @@ class TaskSuite(Generic[Env]):
             functions_stack_trace,
         )
         return utility, function_calls_match
+
+    def _check_attack_task_result(
+        self,
+        task: BaseAttackTask,
+        model_output: str | List[str],
+        pre_environment: Env,
+        task_environment: Env,
+        functions_stack_trace: Sequence[FunctionCall],
+    ) -> bool:
+        security = self._check_user_attack_task_utility(
+            task,
+            model_output,
+            pre_environment,
+            task_environment,
+        )
+        function_calls_match = self._check_function_calls(
+            task,
+            pre_environment,
+            functions_stack_trace,
+        )
+        return security, function_calls_match
+
+    async def run_attack_task_with_pipeline(
+        self,
+        multi_agent_system: MultiAgentSystem,
+        user_task: BaseUserTask[Env],
+        environment: Env | None = None
+    ) -> tuple[bool, bool]:
+        # If no environment is provided, load the default environment
+        if environment is None:
+            environment = self.load_default_environment()
+        # Initialize the environment according to the task
+        if isinstance(user_task, BaseAttackTask):
+            task_environment = user_task.init_environment(environment)
+        else:
+            task_environment = environment
+
+        # Create a copy of the environment before running the user task to then diff if needed
+        pre_environment = task_environment.model_copy(deep=True)
+        if isinstance(user_task, BaseAttackTask):
+            prompt = user_task.PROMPT
+        else:
+            raise ValueError(f"User task {user_task.ID} is not a valid BaseUserTask instance")
+        
+
+        result = await multi_agent_system.query(
+            input=prompt, 
+            env=task_environment,
+            attack_hooks=None
+        )
+
+        if result["final_output"] is None:
+            warnings.warn(f"Model output was None for task {user_task.ID}")
+
+        functions_stack_trace = result.get("function_calls", [])
+        security, function_calls_match = self._check_attack_task_result(
+            user_task,
+            result["final_output"] or [],
+            pre_environment,
+            task_environment,  # type: ignore
+            functions_stack_trace,
+        )
+        return security, function_calls_match, result
     

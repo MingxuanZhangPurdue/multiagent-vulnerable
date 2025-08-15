@@ -34,5 +34,5 @@ tools = [
 banking_task_suite = TaskSuite[BankingEnvironment](
     tools=tools,
     name="banking",
-    environment_type=BankingEnvironment,
+    environment_type=BankingEnvironment
 )
