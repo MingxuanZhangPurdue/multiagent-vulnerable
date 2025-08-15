@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Any
+from typing import Any, Callable
 from agents import Agent
 from dataclasses import dataclass, field
 from mav.Tasks.base_environment import TaskEnvironment
@@ -25,9 +25,16 @@ class AttackComponents:
 
 class BaseAttack(ABC):
 
-    def __init__(self, attack_config: dict[str, Any] = None):
+    def __init__(self, attack_config: dict[str, Any] = None, eval_function: Callable = None):
         self.attack_config = attack_config
+        self.eval_function = eval_function
 
     @abstractmethod
     async def attack(self, components: AttackComponents):
         pass
+
+    def security(self, args) -> bool:
+        if self.eval_function is None:
+            raise ValueError("Eval function is not set")
+        return self.eval_function(args)
+

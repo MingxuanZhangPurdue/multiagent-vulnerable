@@ -51,3 +51,4 @@ class InstructionAttack(BaseAttack):
 
         else:
             raise ValueError("Invalid content type specified. Supported types are 'str' and 'dict'.")
+    

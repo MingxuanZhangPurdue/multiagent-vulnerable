@@ -13,3 +13,4 @@ class EnvironmentAttack(BaseAttack):
         """
 
         pass
+

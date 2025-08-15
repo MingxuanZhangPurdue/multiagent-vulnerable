@@ -38,11 +38,15 @@ async def benchmark_suite(
                 user_task=user_task,
                 attack_hooks=attack_hooks
             )
-            suite_results[user_task.ID] = {
+            item = {
                 "utility": utility,
                 "function_calls_match": function_calls_match,
-                "result": result
+                "result": result,
             }
+            if attack_hooks is not None and len(attack_hooks) > 0:
+                item["security"] = [attack_hook.attack.security(result) for attack_hook in attack_hooks]
+                
+            suite_results[user_task.ID] = item
     else:
          for user_task in tqdm(user_tasks_to_run, desc="Running User Tasks"):
             utility, function_calls_match, result = await suite.run_attack_task_with_pipeline(
