@@ -3,12 +3,12 @@ from mav.Tasks.banking import environment
 from mav.Tasks.task_suite import TaskSuite
 from typing import Sequence
 from tqdm import tqdm
-from mav.Attacks.attack import BaseAttack
+from mav.MAS.attack_hook import AttackHook
 
 async def benchmark_suite(
     multi_agent_system: MultiAgentSystem,
     suite: TaskSuite,
-    attacks: list[BaseAttack] | None = None,
+    attack_hooks: list[AttackHook] | None = None,
     user_tasks: Sequence[str] | None = None,
     type: str = "user_task"
 ):
@@ -36,7 +36,7 @@ async def benchmark_suite(
             utility, function_calls_match, result = await suite.run_task_with_pipeline(
                 multi_agent_system=multi_agent_system,
                 user_task=user_task,
-                attacks=attacks
+                attack_hooks=attack_hooks
             )
             suite_results[user_task.ID] = {
                 "utility": utility,

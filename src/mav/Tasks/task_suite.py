@@ -179,7 +179,7 @@ class TaskSuite(Generic[Env]):
         multi_agent_system: MultiAgentSystem,
         user_task: BaseUserTask[Env],
         environment: Env | None = None,
-        attacks: list[BaseAttack] | None = None
+        attack_hooks: list[AttackHook] | None = None
     ) -> tuple[bool, bool]:
         # If no environment is provided, load the default environment
         if environment is None:
@@ -196,12 +196,7 @@ class TaskSuite(Generic[Env]):
             prompt = user_task.PROMPT
         else:
             raise ValueError(f"User task {user_task.ID} is not a valid BaseUserTask instance")
-        
-        if attacks is not None:
-            attack_hooks = AttackHook(attacks)
-        else:
-            attack_hooks = None
-
+    
 
         result = await multi_agent_system.query(
             input=prompt, 

@@ -235,7 +235,7 @@ class MultiAgentSystem:
 
         attack_components = AttackComponents(
             input=input,
-            output=None,
+            final_output=None,
             memory_dict={
                 "planner": planner_memory,
                 "executor": executor_memory
