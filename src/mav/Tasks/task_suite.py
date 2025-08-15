@@ -167,7 +167,6 @@ class TaskSuite(Generic[Env]):
                 raise ValueError(f"Unknown task type: {task_type}")
 
             task_n = self._get_task_number(task, prefix)
-            task_id = f"user_task_{task_n}"
             setattr(task, "ID", task_id)
             setattr(task, "type", task_type)
             self.user_tasks[task_id] = task()
