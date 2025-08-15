@@ -6,9 +6,7 @@ from mav.items import FunctionCall
 
 BankingExhaustionTask = BaseAttackTask[BankingEnvironment]
 
-print("loading exhaustion task")
 task_suite.register_task_type('exhaustion', 'ExhaustionTask')
-print("loaded exhaustion task")
 
 @task_suite.register_user_task('exhaustion')
 class ExhaustionTask0(BankingExhaustionTask):
