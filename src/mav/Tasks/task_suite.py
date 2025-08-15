@@ -11,7 +11,7 @@ from mav.Tasks.utils.yaml_loader import ImportLoader
 from mav.Tasks.base_tasks import BaseUserTask
 from mav.MAS.framework import MultiAgentSystem
 from mav.Attacks import BaseAttack
-from mav.MAS.attack_hooks import AttackHooks
+from mav.MAS.attack_hook import AttackHook
 
 IT = TypeVar("IT")
 
@@ -163,7 +163,7 @@ class TaskSuite(Generic[Env]):
             raise ValueError(f"User task {user_task.ID} is not a valid BaseUserTask instance")
         
         if attacks is not None:
-            attack_hooks = AttackHooks(attacks)
+            attack_hooks = AttackHook(attacks)
         else:
             attack_hooks = None
 

@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import List, Dict, Any
 from mav.Tasks.base_environment import TaskEnvironment
-from mav.Tasks.web.environment import ActionTypes
+# from mav.Tasks.web.environment import ActionTypes
 
 class BaseTermination(ABC):
     @abstractmethod
@@ -92,22 +92,22 @@ class MessageTermination(BaseTermination):
         
         return False
     
-class WebAgentTermination(BaseTermination):
-    """
-    A specialized termination condition for web agents.
-    """
-    def __init__(self, termination_message: str):
-        self.termination_message = termination_message
+# class WebAgentTermination(BaseTermination):
+#     """
+#     A specialized termination condition for web agents.
+#     """
+#     def __init__(self, termination_message: str):
+#         self.termination_message = termination_message
     
-    def __call__(self, 
-        iteration: int | None = None, 
-        results: List[Dict[str, Any]] | None = None, 
-        env: TaskEnvironment | None = None
-    ) -> bool:
+#     def __call__(self, 
+#         iteration: int | None = None, 
+#         results: List[Dict[str, Any]] | None = None, 
+#         env: TaskEnvironment | None = None
+#     ) -> bool:
         
-        if env is None:
-            raise ValueError("A valid TaskEnvironment must be provided for WebAgentTermination")
+#         if env is None:
+#             raise ValueError("A valid TaskEnvironment must be provided for WebAgentTermination")
         
-        if env.trajectory[-1]["action_type"] == ActionTypes.STOP:
-            return True
-        return False
+#         if env.trajectory[-1]["action_type"] == ActionTypes.STOP:
+#             return True
+#         return False

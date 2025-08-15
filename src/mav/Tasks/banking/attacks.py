@@ -1,5 +1,5 @@
 from mav.Attacks import BaseAttack, PromptAttack, MemoryAttack, EnvironmentAttack, ToolAttack, InstructionAttack
-from mav.MAS.attack_hooks import AttackHook
+from mav.MAS.attack_hook import AttackHook
 
 prompt_attacks: list[AttackHook] = [
     AttackHook(

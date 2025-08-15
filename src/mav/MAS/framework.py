@@ -15,7 +15,7 @@ from mav.MAS.terminations import BaseTermination
 from mav.items import FunctionCall
 from mav.Tasks.base_environment import TaskEnvironment
 from mav.MAS.terminations import BaseTermination
-from mav.MAS.attack_hooks import execute_attacks, AttackHook
+from mav.MAS.attack_hook import execute_attacks, AttackHook
 from mav.Attacks.attack import AttackComponents
 
 class MultiAgentSystem:
