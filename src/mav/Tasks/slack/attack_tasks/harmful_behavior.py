@@ -7,6 +7,7 @@ import random
 
 SlackHarmfulBehaviorTask = BaseAttackTask[SlackEnvironment]
 
+task_suite.register_task_type('harmful', 'HarmfulBehaviorTask')
 
 @task_suite.register_user_task('harmful')
 class HarmfulBehaviorTask0(SlackHarmfulBehaviorTask):

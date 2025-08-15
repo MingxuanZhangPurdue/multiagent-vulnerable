@@ -6,6 +6,8 @@ from mav.items import FunctionCall
 
 BankingPrivacyTask = BaseAttackTask[BankingEnvironment]
 
+task_suite.register_task_type('privacy', 'PrivacyTask')
+
 @task_suite.register_user_task('privacy')
 class PrivacyTask0(BankingPrivacyTask):
     """

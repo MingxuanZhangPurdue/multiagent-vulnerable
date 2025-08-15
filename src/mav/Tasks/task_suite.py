@@ -104,14 +104,13 @@ class TaskSuite(Generic[Env]):
         environment_type: type[Env],
         tools: List[Callable],
         data_path: Path | None = None,
-        type: str | None = None,
     ):
         self.name = name
         self.environment_type = environment_type
         self.tools = tools
         self.user_tasks: dict[str, BaseUserTask[Env]] = defaultdict(dict)
         self.data_path = data_path
-        self.type = type
+        self.task_types = {"user_task": "UserTask"}
     
     def _load_tasks_by_type(self, type: str):
         for task in self.user_tasks.values():
@@ -123,6 +122,10 @@ class TaskSuite(Generic[Env]):
         environment = self.environment_type.model_validate(yaml.safe_load(environment_text))
         return environment
     
+    def register_task_type(self, task_type: str, task_cls: str):
+        if task_type not in self.task_types:
+            self.task_types[task_type] = task_cls
+
     @lru_cache
     def get_user_task_by_id(self, task_id: str) -> BaseUserTask[Env]:
         """Get a user task by its ID."""
@@ -134,39 +137,22 @@ class TaskSuite(Generic[Env]):
             raise ValueError(f"User tasks must be named {prefix} followed by a number, got {task_cls.__name__}")
         return int(match.group(1))
 
-    def register_user_task(self, task_type: str | None = None) -> type[BaseUserTask[Env]]:
+    def register_user_task(self, task_type: str = "user_task") -> type[BaseUserTask[Env]]:
         """Register a user task in the suite.
 
         Args:
             task: The user task class to register.
         """
-        if task_type is None:
-            def simple_decorator(task: type[BaseUserTask[Env]]) -> type[BaseUserTask[Env]]:
-                task_n = self._get_task_number(task, "UserTask")
-                task_id = f"user_task_{task_n}"
-                setattr(task, "ID", task_id)
-                setattr(task, "type", "user_task")
-                self.user_tasks[task_id] = task()
-                return task
-            return simple_decorator
-
         def register_task(task: type[BaseUserTask[Env]]):
-            if task_type == "harmful":
-                prefix = "HarmfulBehaviorTask"
-                task_n = self._get_task_number(task, prefix)
-                task_id = f"harmful_task_{task_n}"
-            elif task_type == "privacy":
-                prefix = "PrivacyTask"
-                task_n = self._get_task_number(task, prefix)
-                task_id = f"privacy_task_{task_n}"
-            elif task_type == "exhaustion":
-                prefix = "ExhaustionTask"
-                task_n = self._get_task_number(task, prefix)
-                task_id = f"exhaustion_task_{task_n}"
-            else:
-                raise ValueError(f"Unknown task type: {task_type}")
-
+            prefix = self.task_types[task_type]
             task_n = self._get_task_number(task, prefix)
+            if task_type not in self.task_types:
+                raise ValueError(f"Unknown task type: {task_type}")
+            if task_type == "user_task":
+                task_id = f"user_task_{task_n}"
+            else:
+                task_id = f"{task_type}_task_{task_n}"
+
             setattr(task, "ID", task_id)
             setattr(task, "type", task_type)
             self.user_tasks[task_id] = task()

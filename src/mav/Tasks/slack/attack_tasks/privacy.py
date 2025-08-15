@@ -7,6 +7,8 @@ from dataclasses import dataclass, field
 
 SlackPrivacyTask = BaseAttackTask[SlackEnvironment]
 
+task_suite.register_task_type('privacy', 'PrivacyTask')
+
 @task_suite.register_user_task('privacy')
 class PrivacyTask0(SlackPrivacyTask):
     """
