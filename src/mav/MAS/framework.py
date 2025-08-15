@@ -29,6 +29,8 @@ class MultiAgentSystem:
         termination_condition: list[BaseTermination] | None = None,
         max_iterations: int = 10,
         enable_executor_memory: bool = True,
+        shared_memory: bool = False,
+        use_memory: bool = True,
     ):
         if runner == "handoffs" and not isinstance(agents, Agent):
             raise ValueError("When using 'handoffs' runner, a single agent must be passed!")
@@ -54,6 +56,8 @@ class MultiAgentSystem:
         # planner_executor specific parameters
         self.max_iterations = max_iterations
         self.enable_executor_memory = enable_executor_memory
+        self.shared_memory = shared_memory
+        self.use_memory = use_memory
 
     async def query(
         self,
@@ -79,6 +83,10 @@ class MultiAgentSystem:
         """
         Runs the agents in a handoff manner (if there are any)
         It will also work with a single agent.
+
+        Memory:
+        - If use_memory is True, we use a shared memory for all agents.
+        - If use_memory is False, we do not use memory.
         """
         if not isinstance(self.agents, Agent):
             raise ValueError("When using 'handoffs' runner, a single agent must be passed!")
@@ -97,6 +105,11 @@ class MultiAgentSystem:
             env=env
         )
 
+        if self.use_memory:
+            memory = SQLiteSession(session_id="handoff_memory")
+        else:
+            memory = None
+
         if attack_hooks is not None:
             execute_attacks(attack_hooks=attack_hooks, event_name="on_agent_start", iteration=0, components=attack_components)
 
@@ -104,6 +117,7 @@ class MultiAgentSystem:
             starting_agent=self.agents,
             input=attack_components.input,
             context=env,
+            session=memory,
         )
 
         attack_components.final_output = agent_result.final_output
@@ -142,6 +156,11 @@ class MultiAgentSystem:
             - If the last agent does not produce a final output, the initial input will be used as the final output.
             - The final output will be the output of the last agent in the sequence after the termination condition is met.
             - The results of the last agent will be used to determine if the termination condition is met.
+
+        Memory:
+        - If shared_memory are True, we use a shared memory for all agents.
+        - If use_memory is True and shared_memory are False, we use a separate memory for each agent.
+        - Otherwise, we do not use memory.
         """
         if not isinstance(self.agents, list):
             raise ValueError("When using 'sequential' runner, a list of agents must be passed!")
@@ -162,16 +181,40 @@ class MultiAgentSystem:
 
         iteration = 0
 
+        if self.shared_memory:
+            memory = SQLiteSession(session_id="sequential_memory")
+        elif self.use_memory:
+            memory = {}
+            for agent in self.agents:
+                memory[agent.name] = SQLiteSession(session_id=f"sequential_memory_{agent.name}")
+        else:
+            memory = None
+
         for agent in self.agents:
 
             if attack_hooks is not None:
                 execute_attacks(attack_hooks=attack_hooks, event_name="on_agent_start", iteration=iteration, components=attack_components)
 
-            agent_result = await Runner.run(
-                starting_agent=agent,
-                input=attack_components.input,
-                context=env,
-            )
+            if self.shared_memory:
+                agent_result = await Runner.run(
+                    starting_agent=agent,
+                    input=attack_components.input,
+                    context=env,
+                    session=memory,
+                )
+            elif self.use_memory:
+                agent_result = await Runner.run(
+                    starting_agent=agent,
+                    input=attack_components.input,
+                    context=env,
+                    session=memory[agent.name],
+                )
+            else:
+                agent_result = await Runner.run(
+                    starting_agent=agent,
+                    input=attack_components.input,
+                    context=env,
+                )
 
             attack_components.final_output = agent_result.final_output
 
@@ -212,6 +255,12 @@ class MultiAgentSystem:
             - The second agent (executor) takes the output from the planner and executes it.
             - The process continues until the termination condition is met or the maximum number of iterations is reached.
             - The final output will be the output of the planner after the termination condition is met.
+        
+        Memory:
+        - If use_memory is True, then the planner has memory.
+        - If shared_memory is True, then the executor and planner has memory.
+        - If enable_executor_memory is True, then the executor has memory.
+        - Otherwise, we do not use memory.
         """
 
         usage: dict[str, list[dict[str, int]]] = {
@@ -227,9 +276,9 @@ class MultiAgentSystem:
 
         iteration = 0
 
-        planner_memory = SQLiteSession(session_id="planner_memory")
+        planner_memory = SQLiteSession(session_id="planner_memory") if self.use_memory else None
 
-        executor_memory = SQLiteSession(session_id="executor_memory") if self.enable_executor_memory else None
+        executor_memory = planner_memory if self.shared_memory else SQLiteSession(session_id="executor_memory") if self.enable_executor_memory else None
 
         executor_tool_calls: list[dict[str, Any]] = []
 

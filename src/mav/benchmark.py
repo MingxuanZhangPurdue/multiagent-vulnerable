@@ -22,14 +22,14 @@ async def benchmark_suite(
     if type is None:
             type = "user_task"
     
-    print("type")
-    print(type)
-    print("all tasks")
-    print(user_tasks_to_run)
+    # print("type")
+    # print(type)
+    # print("all tasks")
+    # print(user_tasks_to_run)
     user_tasks_to_run = [task for task in user_tasks_to_run if task.type == type]
 
-    print("filtered tasks")
-    print(user_tasks_to_run)
+    # print("filtered tasks")
+    # print(user_tasks_to_run)
 
     if type == "user_task":
         for user_task in tqdm(user_tasks_to_run, desc="Running User Tasks"):
@@ -45,7 +45,7 @@ async def benchmark_suite(
             }
             if attack_hooks is not None and len(attack_hooks) > 0:
                 item["security"] = [attack_hook.attack.security(result) for attack_hook in attack_hooks]
-                
+
             suite_results[user_task.ID] = item
     else:
          for user_task in tqdm(user_tasks_to_run, desc="Running User Tasks"):

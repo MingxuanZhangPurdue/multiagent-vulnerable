@@ -8,6 +8,8 @@ from mav.items import FunctionCall
 
 SlackExhaustionTask = BaseAttackTask[SlackEnvironment]
 
+task_suite.register_task_type('exhaustion', 'ExhaustionTask')
+
 @task_suite.register_user_task('exhaustion')
 class ExhaustionTask0(SlackExhaustionTask):
     """
