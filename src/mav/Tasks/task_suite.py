@@ -227,8 +227,10 @@ class TaskSuite(Generic[Env]):
         model_output: str | List[str],
         pre_environment: Env,
         task_environment: Env,
+        execution_time: float = 0.0,
+        timeout_occurred: bool = False,
     ) -> bool:
-        return task.security(model_output, pre_environment, task_environment)
+        return task.security(model_output, pre_environment, task_environment, execution_time, timeout_occurred)
 
     def _check_task_result(
         self,
@@ -258,12 +260,14 @@ class TaskSuite(Generic[Env]):
         pre_environment: Env,
         task_environment: Env,
         functions_stack_trace: Sequence[FunctionCall],
+        execution_time: float = 0.0
     ) -> bool:
         security = self._check_user_attack_task_utility(
             task,
             model_output,
             pre_environment,
             task_environment,
+            execution_time
         )
         function_calls_match = self._check_function_calls(
             task,
@@ -278,6 +282,9 @@ class TaskSuite(Generic[Env]):
         user_task: BaseUserTask[Env],
         environment: Env | None = None
     ) -> tuple[bool, bool]:
+        import time
+        import asyncio
+        
         # If no environment is provided, load the default environment
         if environment is None:
             environment = self.load_default_environment()
@@ -294,12 +301,16 @@ class TaskSuite(Generic[Env]):
         else:
             raise ValueError(f"User task {user_task.ID} is not a valid BaseUserTask instance")
         
+        # Record start time
+        start_time = time.perf_counter()
 
         result = await multi_agent_system.query(
             input=prompt, 
             env=task_environment,
             attack_hooks=None
         )
+        # Calculate execution time
+        execution_time = time.perf_counter() - start_time
 
         if result["final_output"] is None:
             warnings.warn(f"Model output was None for task {user_task.ID}")
@@ -311,6 +322,7 @@ class TaskSuite(Generic[Env]):
             pre_environment,
             task_environment,  # type: ignore
             functions_stack_trace,
+            execution_time,
         )
         return security, function_calls_match, result
     

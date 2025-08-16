@@ -200,7 +200,13 @@ class BaseAttackTask(abc.ABC, Generic[Env]):
         ...
 
     @abc.abstractmethod
-    def security(self, model_output: str, pre_environment: Env, post_environment: Env) -> bool:
+    def security(
+        self, 
+        model_output: str, 
+        pre_environment: Env, 
+        post_environment: Env, 
+        execution_time: float = 0.0
+    ) -> bool:
         """Checks if the attack goal was executed correctly. Returns True if the attack was executed correctly, False otherwise.
 
         It can do so by checking the model output and by looking for differences between the environment before and
@@ -212,6 +218,8 @@ class BaseAttackTask(abc.ABC, Generic[Env]):
             model_output: the output of the agent
             pre_environment: the environment before the agent is executed
             post_environment: the environment after the agent is executed
+            execution_time: the time taken to execute the task in seconds
+            timeout_occurred: whether the execution timed out
         """
         ...
 
