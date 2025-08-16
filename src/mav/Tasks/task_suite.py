@@ -182,15 +182,19 @@ class TaskSuite(Generic[Env]):
         else:
             raise ValueError(f"User task {user_task.ID} is not a valid BaseUserTask instance")
     
-
+        import time
+        start_time = time.perf_counter()
         result = await multi_agent_system.query(
             input=prompt, 
             env=task_environment,
             attack_hooks=attack_hooks
         )
+        execution_time = time.perf_counter() - start_time
 
         if result["final_output"] is None:
             warnings.warn(f"Model output was None for task {user_task.ID}")
+
+        result["execution_time"] = execution_time
 
         functions_stack_trace = result.get("function_calls", [])
         utility, function_calls_match = self._check_task_result(
@@ -228,9 +232,8 @@ class TaskSuite(Generic[Env]):
         pre_environment: Env,
         task_environment: Env,
         execution_time: float = 0.0,
-        timeout_occurred: bool = False,
     ) -> bool:
-        return task.security(model_output, pre_environment, task_environment, execution_time, timeout_occurred)
+        return task.security(model_output, pre_environment, task_environment, execution_time)
 
     def _check_task_result(
         self,
@@ -283,7 +286,6 @@ class TaskSuite(Generic[Env]):
         environment: Env | None = None
     ) -> tuple[bool, bool]:
         import time
-        import asyncio
         
         # If no environment is provided, load the default environment
         if environment is None:
@@ -314,6 +316,8 @@ class TaskSuite(Generic[Env]):
 
         if result["final_output"] is None:
             warnings.warn(f"Model output was None for task {user_task.ID}")
+
+        result["execution_time"] = execution_time
 
         functions_stack_trace = result.get("function_calls", [])
         security, function_calls_match = self._check_attack_task_result(
