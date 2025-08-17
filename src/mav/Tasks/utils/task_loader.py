@@ -10,7 +10,7 @@ def load_attack_tasks(file_path: str, package: str):
     # print(list(pkgutil.iter_modules([current_dir])))
 
     for _, module_name, is_pkg in pkgutil.iter_modules([current_dir]):
-        # print(module_name, is_pkg)
+        print(module_name, is_pkg)
         if is_pkg:
             continue
         full_module_name = f"{package}.{module_name}"

@@ -113,12 +113,20 @@ class MultiAgentSystem:
         if attack_hooks is not None:
             execute_attacks(attack_hooks=attack_hooks, event_name="on_agent_start", iteration=0, components=attack_components)
 
-        agent_result = await Runner.run(
-            starting_agent=self.agents,
-            input=attack_components.input,
-            context=env,
-            session=memory,
-        )
+        try:
+            agent_result = await Runner.run(
+                starting_agent=self.agents,
+                input=attack_components.input,
+                context=env,
+                session=memory,
+            )
+        except Exception as e:
+            return {
+                "final_output": None,
+                "usage": usage,
+                "function_calls": self.cast_to_function_calls(tool_calls),
+                "error": str(e)
+            }
 
         attack_components.final_output = agent_result.final_output
 
@@ -195,26 +203,34 @@ class MultiAgentSystem:
             if attack_hooks is not None:
                 execute_attacks(attack_hooks=attack_hooks, event_name="on_agent_start", iteration=iteration, components=attack_components)
 
-            if self.shared_memory:
-                agent_result = await Runner.run(
-                    starting_agent=agent,
-                    input=attack_components.input,
-                    context=env,
-                    session=memory,
-                )
-            elif self.use_memory:
-                agent_result = await Runner.run(
-                    starting_agent=agent,
-                    input=attack_components.input,
-                    context=env,
-                    session=memory[agent.name],
-                )
-            else:
-                agent_result = await Runner.run(
-                    starting_agent=agent,
-                    input=attack_components.input,
-                    context=env,
-                )
+            try:
+                if self.shared_memory:
+                    agent_result = await Runner.run(
+                        starting_agent=agent,
+                        input=attack_components.input,
+                        context=env,
+                        session=memory,
+                    )
+                elif self.use_memory:
+                    agent_result = await Runner.run(
+                        starting_agent=agent,
+                        input=attack_components.input,
+                        context=env,
+                        session=memory[agent.name],
+                    )
+                else:
+                    agent_result = await Runner.run(
+                        starting_agent=agent,
+                        input=attack_components.input,
+                        context=env,
+                    )
+            except Exception as e:
+                return {
+                    "final_output": None,
+                    "usage": usage,
+                    "function_calls": self.cast_to_function_calls(tool_calls),
+                    "error": str(e)
+                }
 
             attack_components.final_output = agent_result.final_output
 
@@ -301,12 +317,20 @@ class MultiAgentSystem:
             if attack_hooks is not None:
                 execute_attacks(attack_hooks=attack_hooks, event_name="on_planner_start", iteration=iteration, components=attack_components)
 
-            planner_result = await Runner.run(
-                starting_agent=planner,
-                input=attack_components.input,
-                context=env,
-                session=planner_memory,
-            )
+            try:
+                planner_result = await Runner.run(
+                    starting_agent=planner,
+                    input=attack_components.input,
+                    context=env,
+                    session=planner_memory,
+                )
+            except Exception as e:
+                return {
+                    "final_output": None,
+                    "usage": usage,
+                    "function_calls": self.cast_to_function_calls(executor_tool_calls),
+                    "error": str(e)
+                }
 
             attack_components.final_output = planner_result.final_output
 
@@ -323,12 +347,20 @@ class MultiAgentSystem:
             if attack_hooks is not None:
                 execute_attacks(attack_hooks=attack_hooks, event_name="on_executor_start", iteration=iteration, components=attack_components)
 
-            executor_result = await Runner.run(
-                executor,
-                input=attack_components.input,
-                context=env,
-                session=executor_memory,
-            )
+            try:
+                executor_result = await Runner.run(
+                    executor,
+                    input=attack_components.input,
+                    context=env,
+                    session=executor_memory,
+                )
+            except Exception as e:
+                return {
+                    "final_output": None,
+                    "usage": usage,
+                    "function_calls": self.cast_to_function_calls(executor_tool_calls),
+                    "error": str(e)
+                }
 
             attack_components.final_output = executor_result.final_output
 
