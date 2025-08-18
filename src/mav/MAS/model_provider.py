@@ -4,8 +4,8 @@ from agents.extensions.models.litellm_model import LitellmModel
 
 
 support_models = {
-    "gpt_model": ["gpt-4o", "gpt-5-mini", "gpt-5-nano", "o4-mini", "o3-mini"],
-    "gemini_model": ["gemini-2.5-pro", "gemini-2.5-flash"],
+    "gpt_model": ["gpt-5", "gpt-5-mini", "gpt-5-nano", "o4-mini", "o3-mini", "gpt-4o", "gpt-4o-mini", "gpt-4o-turbo-preview"],
+    "gemini_model": ["gemini-2.5-pro", "gemini-2.5-flash", "gemini-2.0-flash"],
     "anthropic_model": ["claude-3.7", "claude-sonnet-4", "claude-opus-4", "claude-opus-4-1"],
     "deepseek_model": ["deepseek-r1", "deepseek-v3"],
     "ollama_models": ["ollama/gpt-oss:20b","ollama/gpt-oss:120b"]
