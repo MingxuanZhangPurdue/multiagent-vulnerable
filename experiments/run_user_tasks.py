@@ -244,9 +244,8 @@ if __name__ == "__main__":
     logger.setLevel(logging.DEBUG)  # Set the logger level to DEBUG
 
     # Create necessary directories
-    log_dir = f"{args.log_path}/{args.structure}/{args.suite}"
-    os.makedirs(log_dir, exist_ok=True)
 
+    log_dir = f"{args.log_path}/{args.structure}"
     # Create a file handler
     file_handler = logging.FileHandler(f"{log_dir}/{args.suite}_{args.planner_model}_{args.executor_model}_{args.memory_type}.log")
     file_handler.setLevel(logging.DEBUG)
@@ -261,7 +260,11 @@ if __name__ == "__main__":
 
     results = asyncio.run(run_user_tasks(args.suite, args.structure, args.planner_model, args.executor_model, args.memory_type))
     
-    pickle.dump(results, open(f"{args.log_path}/{args.structure}/{args.suite}/{args.suite}_{args.planner_model}_{args.executor_model}_{args.memory_type}.pkl", "wb"))
+    # Create pickle directory if needed
+    pickle_dir = f"{args.log_path}/{args.structure}/{args.suite}"
+    os.makedirs(pickle_dir, exist_ok=True)
+    
+    pickle.dump(results, open(f"{pickle_dir}/{args.suite}_{args.planner_model}_{args.executor_model}_{args.memory_type}.pkl", "wb"))
 
 
 
