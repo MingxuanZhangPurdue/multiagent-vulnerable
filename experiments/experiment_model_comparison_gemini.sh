@@ -35,12 +35,13 @@ run_cross_provider_experiments() {
     mkdir -p "results/model_comparison/planner_executor/$suite"
     mkdir -p "results/model_comparison/handoffs/$suite"
 
-    run_experiment "$suite" "gpt-5" "gpt-5"
-    run_experiment "$suite" "gpt-5" "gpt-5-mini"
-    run_experiment "$suite" "gpt-5" "gpt-5-nano"
-    run_experiment "$suite" "gpt-5-mini" "gpt-5-mini"
-    run_experiment "$suite" "gpt-5-mini" "gpt-5-nano"
-    run_experiment "$suite" "gpt-5-nano" "gpt-5-nano"
+    run_experiment "$suite" "gemini-2.5-pro" "gemini-2.5-pro"
+    run_experiment "$suite" "gemini-2.5-pro" "gemini-2.5-flash"
+    run_experiment "$suite" "gemini-2.5-pro" "gemini-2.0-flash"
+    run_experiment "$suite" "gemini-2.5-flash" "gemini-2.5-flash"
+    run_experiment "$suite" "gemini-2.5-flash" "gemini-2.0-flash"
+    run_experiment "$suite" "gemini-2.0-flash" "gemini-2.0-flash"
+
 }
 
 for suite in "${SUITES[@]}"; do

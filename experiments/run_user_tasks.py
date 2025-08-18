@@ -241,12 +241,23 @@ if __name__ == "__main__":
     print(f"  Log Path: {args.log_path}")
     
     logger = logging.getLogger("openai.agents")
+    logger.setLevel(logging.DEBUG)  # Set the logger level to DEBUG
+
+    # Create necessary directories
+    log_dir = f"{args.log_path}/{args.structure}/{args.suite}"
+    os.makedirs(log_dir, exist_ok=True)
 
     # Create a file handler
-    file_handler = logging.FileHandler(f"{args.log_path}/{args.structure}/{args.suite}_{args.planner_model}_{args.executor_model}_{args.memory_type}.log")
+    file_handler = logging.FileHandler(f"{log_dir}/{args.suite}_{args.planner_model}_{args.executor_model}_{args.memory_type}.log")
     file_handler.setLevel(logging.DEBUG)
     file_handler.setFormatter(logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s"))
     logger.addHandler(file_handler)
+
+    # Also add console handler for debugging
+    console_handler = logging.StreamHandler()
+    console_handler.setLevel(logging.INFO)
+    console_handler.setFormatter(logging.Formatter("%(levelname)s - %(message)s"))
+    logger.addHandler(console_handler)
 
     results = asyncio.run(run_user_tasks(args.suite, args.structure, args.planner_model, args.executor_model, args.memory_type))
     
