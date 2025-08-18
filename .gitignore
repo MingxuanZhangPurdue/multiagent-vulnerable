@@ -197,3 +197,5 @@ examples/*.pkl
 examples/*.log
 
 experiments/results/
+
+.DS_Store
