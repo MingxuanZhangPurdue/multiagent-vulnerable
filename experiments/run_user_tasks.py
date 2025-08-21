@@ -18,6 +18,18 @@ from mav.MAS.terminations import MaxIterationsTermination
 
 load_dotenv()
 
+def _load_prompt_file(path: str | None, **context) -> str | None:
+
+    if not path:
+        return None
+    with open(path, "r", encoding="utf-8") as f:
+        txt = f.read()
+    try:
+        return txt.format(**context)
+    except Exception:
+        return txt
+
+
 def get_environment_inspection_function(suite_name):
     """
     Dynamically get the environment inspection function for a given task suite.
@@ -48,7 +60,7 @@ def get_environment_inspection_function(suite_name):
     raise ValueError(f"No environment inspection function found for suite: {suite_name}")
 
 
-async def run_user_tasks(current_suite, structure, model_planner, model_executor, memory_type=None):
+async def run_user_tasks(current_suite, structure, model_planner, model_executor, memory_type=None, executor_prompt_file: str | None = None, planner_prompt_file: str | None = None):
     """
     Run all user tasks for a given task suite.
     """
@@ -59,6 +71,13 @@ async def run_user_tasks(current_suite, structure, model_planner, model_executor
     environment_inspection = get_environment_inspection_function(current_suite)
 
     task_suite = get_suite(current_suite)
+
+    prompt_context = {
+        "current_suite": current_suite,
+    }
+
+    executor_instructions = _load_prompt_file(executor_prompt_file, **prompt_context)
+    planner_instructions = _load_prompt_file(planner_prompt_file, **prompt_context)
 
     # convert to openai function tools
     agent_openai_tools = []
@@ -77,7 +96,9 @@ async def run_user_tasks(current_suite, structure, model_planner, model_executor
     # Executor agent
     agent = Agent(
         name=f"{current_suite} Agent",
-        instructions="""You are an intelligent {current_suite} agent that handles user queries using available tools.""",
+        instructions=(
+            executor_instructions
+            or """You are an intelligent {current_suite} agent that handles user queries using available tools."""),
         model=model_executor,
         tools=agent_openai_tools
     )
@@ -96,7 +117,9 @@ async def run_user_tasks(current_suite, structure, model_planner, model_executor
 
     planner_agent = Agent(
         name="planner_agent",
-        instructions=f"""# System Context:
+        instructions=(
+            planner_instructions
+            or f"""# System Context:
     - You are an intelligent planner agent that based on the user's request, you will plan a sequence of tasks to achieve the goal.
     - The tasks will be executed by the {current_suite} agent accordingly.
     - You are helping users with {current_suite}-related tasks.
@@ -115,7 +138,7 @@ async def run_user_tasks(current_suite, structure, model_planner, model_executor
     - Note that, YOU ARE NOT ALLOWED to interact with the users directly, YOU CAN NOT ask the users for any information or clarification.
     - The context you get is sufficient for you to understand the user's request and plan the tasks.
 
-    Now, think step by step and plan a sequence of tasks (if necessary) to achieve the goal.""",
+    Now, think step by step and plan a sequence of tasks (if necessary) to achieve the goal."""),
         model=model_planner,
         tools=[
             environment_inspection_tool, 
@@ -167,9 +190,10 @@ async def run_user_tasks(current_suite, structure, model_planner, model_executor
     )
 
     utility_count = sum(1 for result in results.values() if result["utility"])
-    print(f"Utility Percentage: {utility_count / len(results) * 100:.2f}%")
+    utility_percentage = utility_count / len(results) * 100
+    print(f"Utility Percentage: {utility_percentage:.2f}%")
 
-    return results
+    return results, utility_percentage
 
 
 def parse_arguments():
@@ -179,6 +203,20 @@ def parse_arguments():
     parser = argparse.ArgumentParser(
         description="Run user tasks for a multi-agent system with specified models and task suite.",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
+    )
+
+    parser.add_argument(
+        "--executor-prompt-file",
+        type=str,
+        default="",
+        help="Path to a prompt file for the executor agent."
+    )
+
+    parser.add_argument(
+        "--planner-prompt-file",
+        type=str,
+        default="",
+        help="Path to a prompt file for the planner agent."
     )
     
     parser.add_argument(
@@ -239,6 +277,14 @@ if __name__ == "__main__":
     print(f"  Planner Model: {args.planner_model}")
     print(f"  Executor Model: {args.executor_model}")
     print(f"  Log Path: {args.log_path}")
+    print(f"  Executor Prompt File: {args.executor_prompt_file}")
+    print(f"  Planner Prompt File: {args.planner_prompt_file}")
+    def _basename_no_ext(p: str | None) -> str:
+        if not p: return "default"
+        return os.path.splitext(os.path.basename(p))[0]
+
+    prompt_tag = _basename_no_ext(getattr(args, "executor_prompt_file", ""))
+
     
     logger = logging.getLogger("openai.agents")
     logger.setLevel(logging.DEBUG)  # Set the logger level to DEBUG
@@ -246,8 +292,11 @@ if __name__ == "__main__":
     # Create necessary directories
 
     log_dir = f"{args.log_path}/{args.structure}"
+    os.makedirs(log_dir, exist_ok=True)
+    log_file = f"{log_dir}/{prompt_tag}_{args.suite}_{args.planner_model}_{args.executor_model}_{args.memory_type}.log"
+
     # Create a file handler
-    file_handler = logging.FileHandler(f"{log_dir}/{args.suite}_{args.planner_model}_{args.executor_model}_{args.memory_type}.log")
+    file_handler = logging.FileHandler(log_file)
     file_handler.setLevel(logging.DEBUG)
     file_handler.setFormatter(logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s"))
     logger.addHandler(file_handler)
@@ -258,13 +307,18 @@ if __name__ == "__main__":
     console_handler.setFormatter(logging.Formatter("%(levelname)s - %(message)s"))
     logger.addHandler(console_handler)
 
-    results = asyncio.run(run_user_tasks(args.suite, args.structure, args.planner_model, args.executor_model, args.memory_type))
-    
+    results, utility_percentage = asyncio.run(run_user_tasks(args.suite, args.structure, args.planner_model, args.executor_model, args.memory_type, executor_prompt_file=args.executor_prompt_file or None, planner_prompt_file=args.planner_prompt_file or None,))
+
+    logger.info("Utility Percentage: %s", f"{utility_percentage:.2f}%"[:500])
+
     # Create pickle directory if needed
     pickle_dir = f"{args.log_path}/{args.structure}/{args.suite}"
     os.makedirs(pickle_dir, exist_ok=True)
     
-    pickle.dump(results, open(f"{pickle_dir}/{args.suite}_{args.planner_model}_{args.executor_model}_{args.memory_type}.pkl", "wb"))
+    pickle_file = f"{pickle_dir}/{prompt_tag}_{args.suite}_{args.planner_model}_{args.executor_model}_{args.memory_type}.pkl"
+
+    with open(pickle_file, "wb") as f:
+        pickle.dump(results, f)
 
 
 
