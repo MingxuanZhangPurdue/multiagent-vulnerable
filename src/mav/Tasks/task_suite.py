@@ -1,6 +1,7 @@
 import yaml
 import re
 import warnings
+import asyncio
 from collections import defaultdict
 from functools import lru_cache
 from pathlib import Path
@@ -283,7 +284,8 @@ class TaskSuite(Generic[Env]):
         self,
         multi_agent_system: MultiAgentSystem,
         user_task: BaseUserTask[Env],
-        environment: Env | None = None
+        environment: Env | None = None,
+        timeout: float | None = None
     ) -> tuple[bool, bool]:
         import time
         
@@ -306,13 +308,36 @@ class TaskSuite(Generic[Env]):
         # Record start time
         start_time = time.perf_counter()
 
-        result = await multi_agent_system.query(
-            input=prompt, 
-            env=task_environment,
-            attack_hooks=None
-        )
-        # Calculate execution time
-        execution_time = time.perf_counter() - start_time
+        try:
+            if timeout is not None:
+                result = await asyncio.wait_for(
+                    multi_agent_system.query(
+                        input=prompt, 
+                        env=task_environment,
+                        attack_hooks=None
+                    ),
+                    timeout=timeout
+                )
+            else:
+                result = await multi_agent_system.query(
+                    input=prompt, 
+                    env=task_environment,
+                    attack_hooks=None
+                )
+        except asyncio.TimeoutError:
+            # Calculate execution time for timeout
+            execution_time = time.perf_counter() - start_time
+            warnings.warn(f"Task {user_task.ID} timed out after {timeout} seconds")
+            # Return a result structure with timeout indication
+            result = {
+                "final_output": None,
+                "function_calls": [],
+                "execution_time": execution_time,
+                "timed_out": True
+            }
+        else:
+            # Calculate execution time for successful completion
+            execution_time = time.perf_counter() - start_time
 
         if result["final_output"] is None:
             warnings.warn(f"Model output was None for task {user_task.ID}")
