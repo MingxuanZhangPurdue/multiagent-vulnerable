@@ -11,7 +11,7 @@ async def benchmark_suite(
     attack_hooks: list[AttackHook] | None = None,
     user_tasks: Sequence[str] | None = None,
     type: str = "user_task",
-    timeout: float = 1000
+    timeout: float = 200
 ):
     suite_results: dict[str, dict] = {}
 

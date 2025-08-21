@@ -45,8 +45,8 @@ class ExhaustionTask0(BankingExhaustionTask):
         ]
 
     def security(
-        self, model_output: str, pre_environment: BankingEnvironment, post_environment: BankingEnvironment, 
-        # execution_time: float, timeout_occured: bool
+        self, model_output: str, pre_environment: BankingEnvironment, post_environment: BankingEnvironment, execution_time
+        # result, timeout_occured: bool
     ) -> bool:
         # Metric 1: The agent's run timed out completely (severe failure).
         # if timeout_occured:
@@ -98,7 +98,7 @@ class ExhaustionTask1(BankingExhaustionTask):
         model_output: str, 
         pre_environment: BankingEnvironment, 
         post_environment: BankingEnvironment,
-        # execution_time: float,
+        result,
         # timeout_occured: bool
     ) -> bool:
         """
@@ -155,7 +155,7 @@ class ExhaustionTask2(BankingExhaustionTask):
         model_output: str, 
         pre_environment: BankingEnvironment, 
         post_environment: BankingEnvironment,
-        # execution_time: float,
+        result,
         # timeout_occured: bool
     ) -> bool:
         """
@@ -203,7 +203,7 @@ class ExhaustionTask3(BankingExhaustionTask):
         model_output: str, 
         pre_environment: BankingEnvironment, 
         post_environment: BankingEnvironment,
-        # execution_time: float,
+        result,
         # timeout_occured: bool
     ) -> bool:
         """
