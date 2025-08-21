@@ -232,9 +232,9 @@ class TaskSuite(Generic[Env]):
         model_output: str | List[str],
         pre_environment: Env,
         task_environment: Env,
-        execution_time: float = 0.0,
+        result: dict
     ) -> bool:
-        return task.security(model_output, pre_environment, task_environment, execution_time)
+        return task.security(model_output, pre_environment, task_environment, result)
 
     def _check_task_result(
         self,
@@ -264,14 +264,14 @@ class TaskSuite(Generic[Env]):
         pre_environment: Env,
         task_environment: Env,
         functions_stack_trace: Sequence[FunctionCall],
-        execution_time: float = 0.0
+        result: dict
     ) -> bool:
         security = self._check_user_attack_task_utility(
             task,
             model_output,
             pre_environment,
             task_environment,
-            execution_time
+            result
         )
         function_calls_match = self._check_function_calls(
             task,
@@ -351,7 +351,7 @@ class TaskSuite(Generic[Env]):
             pre_environment,
             task_environment,  # type: ignore
             functions_stack_trace,
-            execution_time,
+            result
         )
         return security, function_calls_match, result
     
