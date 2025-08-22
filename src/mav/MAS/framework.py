@@ -96,6 +96,10 @@ class MultiAgentSystem:
         }
 
         tool_calls: list[dict[str, Any]] = []
+        
+        input_list_dict: dict[str, list[dict[str, Any]]] = {
+            self.agents.name: []
+        }
 
         attack_components = AttackComponents(
             input=input,
@@ -125,7 +129,8 @@ class MultiAgentSystem:
                 "final_output": None,
                 "usage": usage,
                 "function_calls": self.cast_to_function_calls(tool_calls),
-                "error": str(e)
+                "error": str(e),
+                "input_list_dict": input_list_dict
             }
 
         attack_components.final_output = agent_result.final_output
@@ -143,10 +148,13 @@ class MultiAgentSystem:
                         "tool_arguments": item.arguments
                     })
 
+        input_list_dict[self.agents.name].extend(agent_result.to_input_list())
+
         return {
             "final_output": attack_components.final_output,
             "usage": usage,
-            "function_calls": self.cast_to_function_calls(tool_calls)
+            "function_calls": self.cast_to_function_calls(tool_calls),
+            "input_list_dict": input_list_dict
         }
 
     async def run_sequential(
@@ -298,6 +306,10 @@ class MultiAgentSystem:
 
         executor_tool_calls: list[dict[str, Any]] = []
 
+        input_list_dict: dict[str, list[dict[str, Any]]] = {
+            agent.name: [] for agent in self.agents
+        }
+
         attack_components = AttackComponents(
             input=input,
             final_output=None,
@@ -324,12 +336,14 @@ class MultiAgentSystem:
                     context=env,
                     session=planner_memory,
                 )
+                input_list_dict[planner.name].extend(planner_result.to_input_list())
             except Exception as e:
                 return {
                     "final_output": None,
                     "usage": usage,
                     "function_calls": self.cast_to_function_calls(executor_tool_calls),
-                    "error": str(e)
+                    "error": str(e),
+                    "input_list_dict": input_list_dict
                 }
 
             attack_components.final_output = planner_result.final_output
@@ -354,12 +368,14 @@ class MultiAgentSystem:
                     context=env,
                     session=executor_memory,
                 )
+                input_list_dict[executor.name].extend(executor_result.to_input_list())
             except Exception as e:
                 return {
                     "final_output": None,
                     "usage": usage,
                     "function_calls": self.cast_to_function_calls(executor_tool_calls),
-                    "error": str(e)
+                    "error": str(e),
+                    "input_list_dict": input_list_dict
                 }
 
             attack_components.final_output = executor_result.final_output
@@ -384,7 +400,8 @@ class MultiAgentSystem:
         return {
             "final_output": planner_result.final_output,
             "usage": usage,
-            "function_calls": self.cast_to_function_calls(executor_tool_calls)
+            "function_calls": self.cast_to_function_calls(executor_tool_calls),
+            "input_list_dict": input_list_dict
         }
 
     def extract_usage(
