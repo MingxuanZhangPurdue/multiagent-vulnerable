@@ -343,6 +343,7 @@ class TaskSuite(Generic[Env]):
             warnings.warn(f"Model output was None for task {user_task.ID}")
 
         result["execution_time"] = execution_time
+        result["timed_out"] = False
 
         functions_stack_trace = result.get("function_calls", [])
         security, function_calls_match = self._check_attack_task_result(
