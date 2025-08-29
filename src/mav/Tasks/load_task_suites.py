@@ -20,3 +20,33 @@ def get_suites() -> dict[str, TaskSuite]:
 
 def get_suite(suite_name: str) -> TaskSuite:
     return _SUITES[suite_name]
+
+
+def get_environment_inspection_function(suite_name):
+    """
+    Dynamically get the environment inspection function for a given task suite.
+    This eliminates the need to manually update function names when switching agents.
+    """
+    # Get the task suite
+    task_suite = get_suite(suite_name)
+
+    # Mapping of known environment inspection function names by suite
+    inspection_function_candidates = [
+        "environment_inspection",  # banking
+        "get_channels",           # slack  
+        "get_current_day",        # workspace
+        "get_day_calendar_events", # travel
+    ]
+
+    # Find the environment inspection function in the suite's tools
+    for tool in task_suite.tools:
+        if tool.__name__ in inspection_function_candidates:
+            return tool
+
+    # Fallback: return the first tool that looks like an inspection function
+    for tool in task_suite.tools:
+        if any(keyword in tool.__name__.lower() for keyword in ["inspect", "current", "channel", "environment"]):
+            return tool
+
+    # If nothing found, return None and let the user know
+    raise ValueError(f"No environment inspection function found for suite: {suite_name}")

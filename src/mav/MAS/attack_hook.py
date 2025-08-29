@@ -41,4 +41,18 @@ def execute_attacks(attack_hooks: list[AttackHook], event_name: str, iteration: 
     attack_hooks_to_run = [attack for attack in attack_hooks if attack.step == event_name]
     for attack_hook in attack_hooks_to_run:
         attack_hook(iteration, components)
+        
+        # Call capture_post_environment if this is an end event and attack supports it
+        # For planner_executor mode, only capture at executor_end (final execution phase)
+        # For other modes, capture at any _end event
+        has_capture = hasattr(attack_hook.attack, 'capture_post_environment')
+        is_end_event = event_name.endswith("_end")
+        is_right_event = (event_name == "on_executor_end" or not event_name.startswith("on_planner"))
+        
+        print(f"🐛 Event: {event_name}, has_capture: {has_capture}, is_end: {is_end_event}, right_event: {is_right_event}")
+        
+        should_capture = has_capture and is_end_event and is_right_event
+        if should_capture:
+            print(f"🐛 Calling capture_post_environment for event: {event_name}")
+            attack_hook.attack.capture_post_environment(components)
 

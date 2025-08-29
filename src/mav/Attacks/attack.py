@@ -33,8 +33,19 @@ class BaseAttack(ABC):
     async def attack(self, components: AttackComponents):
         pass
 
-    def security(self, args) -> bool:
+    def security(self, args, pre_environment=None, post_environment=None) -> bool:
         if self.eval_function is None:
             raise ValueError("Eval function is not set")
-        return self.eval_function(args)
+        
+        # Check if eval_function expects environment parameters
+        import inspect
+        sig = inspect.signature(self.eval_function)
+        params = list(sig.parameters.keys())
+        
+        if len(params) == 3 and pre_environment is not None and post_environment is not None:
+            # Call with environment parameters
+            return self.eval_function(args, pre_environment, post_environment)
+        else:
+            # Fall back to original signature
+            return self.eval_function(args)
 
