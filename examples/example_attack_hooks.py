@@ -430,7 +430,7 @@ def create_harmful_attack_hooks(suite, mas_type="handoffs", attack_type="prompt"
 # main testing code
 
 suite_name = "banking"
-model = model_loader("gemini-2.5-flash")  # Choose your preferred model
+model = model_loader("gpt-5-mini")  # Choose your preferred model
 mas_type = "planner_executor"  
 step="on_executor_end"
 
