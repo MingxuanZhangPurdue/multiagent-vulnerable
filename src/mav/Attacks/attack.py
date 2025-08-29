@@ -28,24 +28,42 @@ class BaseAttack(ABC):
     def __init__(self, attack_config: dict[str, Any] = None, eval_function: Callable = None):
         self.attack_config = attack_config
         self.eval_function = eval_function
+        self.pre_environment = None
+        self.post_environment = None
 
     @abstractmethod
     async def attack(self, components: AttackComponents):
         pass
+    
+    def capture_pre_environment(self, components: AttackComponents):
+        """Call this before attack to capture pre-attack environment state"""
+        import copy
+        self.pre_environment = copy.deepcopy(components.env)
+        msg = "📸 Captured pre-attack environment state"
+        print(msg)
+        # Note: logger not available in base class, just print for now
+    
+    def capture_post_environment(self, components: AttackComponents):
+        """Call this after execution to capture post-attack environment state"""
+        import copy
+        self.post_environment = copy.deepcopy(components.env)
+        msg = "📸 Captured post-attack environment state"
+        print(msg)
+        # Note: logger not available in base class, just print for now
 
-    def security(self, args, pre_environment=None, post_environment=None) -> bool:
+    def security(self, args) -> bool:
         if self.eval_function is None:
             raise ValueError("Eval function is not set")
         
-        # Check if eval_function expects environment parameters
-        import inspect
-        sig = inspect.signature(self.eval_function)
-        params = list(sig.parameters.keys())
+        # Extract model_output from args (the result from benchmark_suite)
+        model_output = args.get('final_output', '') if args else ''
         
-        if len(params) == 3 and pre_environment is not None and post_environment is not None:
-            # Call with environment parameters
-            return self.eval_function(args, pre_environment, post_environment)
+        # Check if we have both environments available
+        if self.pre_environment is not None and self.post_environment is not None:
+            # Call eval_function with the signature that matches your task security functions:
+            # eval_function(model_output, pre_environment, post_environment, result)
+            return self.eval_function(model_output, self.pre_environment, self.post_environment, args)
         else:
-            # Fall back to original signature
-            return self.eval_function(args)
+            # Environments are required for security evaluation
+            raise ValueError(f"Both pre_environment and post_environment must be provided for security evaluation. Got pre_environment={self.pre_environment is not None}, post_environment={self.post_environment is not None}")
 
