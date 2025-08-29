@@ -39,6 +39,7 @@ class AttackHook:
 
 def execute_attacks(attack_hooks: list[AttackHook], event_name: str, iteration: int, components: AttackComponents):
     attack_hooks_to_run = [attack for attack in attack_hooks if attack.step == event_name]
+    print(f"🐛 Attack hooks to run: {attack_hooks_to_run}")
     for attack_hook in attack_hooks_to_run:
         attack_hook(iteration, components)
         
