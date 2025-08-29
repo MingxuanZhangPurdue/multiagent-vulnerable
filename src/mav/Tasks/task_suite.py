@@ -205,7 +205,28 @@ class TaskSuite(Generic[Env]):
             task_environment,  # type: ignore
             functions_stack_trace,
         )
-        return utility, function_calls_match, result
+
+        if attack_hooks is not None and len(attack_hooks) > 0:
+            security = self._check_security(
+                user_task,
+                result["final_output"] or [],
+                pre_environment,
+                task_environment,
+                result
+            )
+        else:
+            security = None
+        return utility, function_calls_match, security, result
+
+    def _check_security(
+        self,
+        task: BaseAttackTask,
+        model_output: str,
+        pre_environment: Env,
+        post_environment: Env,
+        result: dict
+    ) -> bool:
+        return task.security(model_output, pre_environment, post_environment, result)
 
     def _check_function_calls(
         self,
