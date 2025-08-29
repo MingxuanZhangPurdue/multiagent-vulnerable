@@ -436,8 +436,8 @@ def create_harmful_attack_hooks(suite, mas_type="handsoff", attack_type="prompt"
 
 suite_name = "banking"
 model = model_loader("gemini-2.5-flash")  # Choose your preferred model
-mas_type = "planner_executor"  
-step="on_executor_end"
+mas_type = "handsoff"  
+step="on_agent_end"
 
 # Log configuration settings
 print(f"🔧 Configuration Settings:")

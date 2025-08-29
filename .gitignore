@@ -194,7 +194,7 @@ cython_debug/
 .cursorindexingignore
 
 examples/*.pkl
-# examples/*.log
+examples/*.log
 
 experiments/results/
 
