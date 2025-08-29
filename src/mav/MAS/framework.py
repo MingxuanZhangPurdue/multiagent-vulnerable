@@ -326,8 +326,8 @@ class MultiAgentSystem:
 
         while iteration < self.max_iterations:  # Prevent infinite loops
 
-            if attack_hooks is not None:
-                execute_attacks(attack_hooks=attack_hooks, event_name="on_planner_start", iteration=iteration, components=attack_components)
+            # if attack_hooks is not None:
+            #     execute_attacks(attack_hooks=attack_hooks, event_name="on_planner_start", iteration=iteration, components=attack_components)
 
             try:
                 planner_result = await Runner.run(

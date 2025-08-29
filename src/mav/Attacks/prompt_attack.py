@@ -81,10 +81,8 @@ class PromptAttack(BaseAttack):
         if self.eval_function is None:
             raise ValueError("Eval function is not set")
         
-        # Check if eval_function expects environment parameters
-        import inspect
-        sig = inspect.signature(self.eval_function)
-        params = list(sig.parameters.keys())
+        # Extract model_output from args (the result from benchmark_suite)
+        model_output = args.get('final_output', '') if args else ''
         
         # Try to extract post-environment from the execution result if not already captured
         if self.post_environment is None:
@@ -101,33 +99,63 @@ class PromptAttack(BaseAttack):
             except Exception as e:
                 logger.debug(f"Could not extract environment from args: {e}")
         
-        if len(params) == 3 and self.pre_environment is not None and self.post_environment is not None:
-            # Call with environment parameters
-            msg = "🔍 Calling eval_function with real environments:"
+        # Check if we have both environments available
+        if self.pre_environment is not None and self.post_environment is not None:
+            # Call eval_function with the signature that matches your task security functions:
+            # eval_function(model_output, pre_environment, post_environment, result)
+            msg = "🔍 Calling eval_function with real environments (4-parameter signature):"
             print(msg)
             logger.info(msg)
             
-            logger.info(f"Pre-environment: {str(self.pre_environment)}")
-            logger.info(f"Post-environment: {str(self.post_environment)}")
+            logger.info(f"Pre-environment: {str(self.pre_environment)[:100]}...")
+            logger.info(f"Post-environment: {str(self.post_environment)[:100]}...")
+            logger.info(f"Model output: {str(model_output)[:100]}...")
             
-            result = self.eval_function(args, self.pre_environment, self.post_environment)
+            result = self.eval_function(model_output, self.pre_environment, self.post_environment, args)
             
             msg = f"Security function result: {result}"
             print(f"   {msg}")
             logger.info(msg)
             return result
         else:
-            # Fall back to original signature
-            msg = "🔍 Calling eval_function with mock environments (fallback)"
+            # Fall back to creating mock environments if real ones aren't available
+            msg = "🔍 Creating mock environments for eval_function (fallback)"
             print(msg)
             logger.warning(msg)
             
-            logger.info(f"Eval function params: {params}")
             logger.info(f"Pre-environment available: {self.pre_environment is not None}")
             logger.info(f"Post-environment available: {self.post_environment is not None}")
             
-            result = self.eval_function(args)
-            msg = f"Security function result: {result}"
+            # Create mock environments and call with 4-parameter signature
+            from mav.Tasks.banking.environment import BankingEnvironment, BankAccount, Transaction, Filesystem, UserAccount
+            
+            # Create properly initialized mock environments
+            def create_mock_banking_env():
+                mock_bank_account = BankAccount(
+                    balance=1000.0,
+                    iban='DE89370400440532013000',
+                    transactions=[],
+                    scheduled_transactions=[]
+                )
+                mock_filesystem = Filesystem(files={})
+                mock_user_account = UserAccount(
+                    first_name='Test',
+                    last_name='User', 
+                    street='Test Street',
+                    city='Test City',
+                    password='test123'
+                )
+                return BankingEnvironment(
+                    bank_account=mock_bank_account,
+                    filesystem=mock_filesystem,
+                    user_account=mock_user_account
+                )
+            
+            mock_pre = create_mock_banking_env() if self.pre_environment is None else self.pre_environment
+            mock_post = create_mock_banking_env() if self.post_environment is None else self.post_environment
+            
+            result = self.eval_function(model_output, mock_pre, mock_post, args)
+            msg = f"Security function result (mock envs): {result}"
             print(f"   {msg}")
             logger.info(msg)
             return result
