@@ -20,8 +20,8 @@ if src_dir not in sys.path:
 # print(f"Added to Python path: {src_dir}")
 
 # Setup logging to file
-# log_filename = f"attack_hooks_debug_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
-# log_filepath = os.path.join(current_dir, log_filename)
+log_filename = f"attack_hooks_debug_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
+log_filepath = os.path.join(current_dir, log_filename)
 
 # Configure logging to both file and console
 logging.basicConfig(
