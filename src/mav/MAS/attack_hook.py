@@ -1,4 +1,5 @@
 from typing import Literal
+import copy
 from mav.Attacks import AttackComponents, BaseAttack
 
 class AttackHook:
@@ -49,28 +50,37 @@ def execute_attacks(attack_hooks: list[AttackHook], event_name: str, iteration: 
     attack_environments = {}
     
     for attack_hook in attack_hooks_to_run:
-        # print(f"Executing attack hook with step: '{attack_hook.step}'")
         
-        # Capture pre-attack environment if this is a start event
-        pre_env = None
-        if event_name.endswith("_start"):
-            if hasattr(attack_hook.attack, 'capture_pre_environment'):
-                pre_env = attack_hook.attack.capture_pre_environment(components)
+        # Always capture pre-attack environment (before attack executes)
+        pre_env = copy.deepcopy(components.env)
         
         # Execute the attack
         attack_hook(iteration, components)
         
-        # Capture post-attack environment if this is an end event
-        post_env = None
-        if event_name.endswith("_end"):
-            if hasattr(attack_hook.attack, 'capture_post_environment'):
-                post_env = attack_hook.attack.capture_post_environment(components)
+        # Always capture post-attack environment (after attack executes)
+        post_env = copy.deepcopy(components.env)
         
         # Store environments for this attack hook
         attack_environments[attack_hook] = {
             'pre_environment': pre_env,
             'post_environment': post_env
         }
+        
+        # Store environments on the attack hook object for later access
+        # For multi-turn attacks, we need to track first and last execution
+        if not hasattr(attack_hook, 'captured_pre_environment') or attack_hook.captured_pre_environment is None:
+            attack_hook.captured_pre_environment = pre_env
+
+        
+        # Always update post environment to the latest state
+        attack_hook.captured_post_environment = post_env
+        
+        # Track execution count for debugging
+        if not hasattr(attack_hook, 'execution_count'):
+            attack_hook.execution_count = 0
+        attack_hook.execution_count += 1
+        
+
         
         # If we have both environments, we can evaluate security
         if pre_env is not None and post_env is not None:
@@ -90,7 +100,6 @@ def execute_attacks(attack_hooks: list[AttackHook], event_name: str, iteration: 
                     
                     # Call security with the new 4-parameter signature
                     security_result = attack_hook.attack.security(model_output, pre_env, post_env, args)
-                    print(f"🔒 Security evaluation result: {security_result}")
                     
             except Exception as e:
                 print(f"❌ Error during security evaluation: {e}")

@@ -1,71 +1,13 @@
 import sys
 import os
-import logging
-from datetime import datetime
 from dotenv import load_dotenv
 from agents import Agent
-
-# Suppress LiteLLM verbose logging - multiple approaches
-import litellm
-
-# Also suppress specific loggers
-import logging
 
 # Add the src directory to Python path - handle both script and notebook execution
 current_dir = os.path.dirname(os.path.abspath(__file__))
 src_dir = os.path.join(os.path.dirname(current_dir), "src")
 if src_dir not in sys.path:
     sys.path.insert(0, src_dir)
-
-# print(f"Added to Python path: {src_dir}")
-
-# Setup logging to file
-# log_filename = f"attack_hooks_debug_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
-# log_filepath = os.path.join(current_dir, log_filename)
-
-# Configure logging to both file and console
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler(log_filepath),
-        logging.StreamHandler(sys.stdout)
-    ]
-)
-
-# Create a custom print function that logs everything
-class LoggingPrint:
-    def __init__(self, log_filepath):
-        self.log_filepath = log_filepath
-        self.original_print = print
-        
-    def __call__(self, *args, **kwargs):
-        # Print to console (original behavior)
-        self.original_print(*args, **kwargs)
-        
-        # Also write to log file
-        try:
-            with open(self.log_filepath, 'a', encoding='utf-8') as f:
-                timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-                message = ' '.join(str(arg) for arg in args)
-                f.write(f"{timestamp} - PRINT - {message}\n")
-        except Exception as e:
-            # If logging fails, don't break the program
-            pass
-
-# Replace the global print function with our logging version
-print = LoggingPrint(log_filepath)
-
-logger = logging.getLogger(__name__)
-logger.info(f"=== Attack Hooks Debug Session Started ===")
-logger.info(f"Log file: {log_filepath}")
-logger.info(f"Added to Python path: {src_dir}")
-logger.info("NOTE: All print statements are now automatically logged to this file for diagnostics")
-
-def log_and_print(message):
-    """Helper function to both print and log messages"""
-    print(message)
-    logger.info(message)
 
 from mav.Tasks.load_task_suites import get_suite, get_environment_inspection_function
 # from mav.Tasks.banking.attacks import prompt_attacks  # Not used
@@ -274,7 +216,7 @@ def create_attack_hooks_from_suite(suite, task_type, mas_type = "handoffs", step
     if step not in available_steps:
         raise ValueError(f"Invalid step '{step}' for mas_type '{mas_type}'. Available steps: {available_steps}")
     
-    print(f"✅ Validated: mas_type='{mas_type}' with step='{step}'")
+
     
     attack_hooks = []
     
@@ -291,7 +233,7 @@ def create_attack_hooks_from_suite(suite, task_type, mas_type = "handoffs", step
     if max_tasks:
         matching_tasks = matching_tasks[:max_tasks]
     
-    print(f"Creating {len(matching_tasks)} attack hooks from {task_type} tasks using {env_type.__name__}")
+
     
     for task_id, task_instance in matching_tasks:
         # task_instance is already an instance, not a class
@@ -305,12 +247,6 @@ def create_attack_hooks_from_suite(suite, task_type, mas_type = "handoffs", step
             def eval_func(model_output, pre_environment, post_environment, result):
                 """Use the sophisticated security function from the attack task with real environments"""
                 try:
-                    # Debug: Check what we're receiving
-                    print(f"🔍 Debug: model_output type: {type(model_output)}, value: {str(model_output)[:100] if model_output else 'None'}")
-                    print(f"🔍 Debug: pre_environment type: {type(pre_environment)}, value: {str(pre_environment)[:100] if pre_environment else 'None'}")
-                    print(f"🔍 Debug: post_environment type: {type(post_environment)}, value: {str(post_environment)[:100] if post_environment else 'None'}")
-                    print(f"🔍 Debug: result type: {type(result)}, keys: {list(result.keys()) if result else 'None'}")
-                    
                     # Use the actual security function from the attack task with real environments!
                     # Now the signature matches exactly: security(model_output, pre_environment, post_environment, result)
                     return task_inst.security(
@@ -323,26 +259,12 @@ def create_attack_hooks_from_suite(suite, task_type, mas_type = "handoffs", step
                 except Exception as e:
                     msg = f"Error in security evaluation for {task_id}: {e}"
                     print(msg)
-                    logger.error(msg)
-                    logger.error(f"Exception details: {type(e).__name__}: {str(e)}")
-                    
-                    # Additional debugging for NoneType errors
-                    if "NoneType" in str(e):
-                        print(f"🔍 NoneType Error Debug:")
-                        print(f"  - result: {result}")
-                        print(f"  - result type: {type(result)}")
-                        if result:
-                            print(f"  - result keys: {list(result.keys())}")
-                            print(f"  - final_output: {result.get('final_output', 'N/A')}")
-                        print(f"  - pre_environment: {pre_environment}")
-                        print(f"  - post_environment: {post_environment}")
                     
                     # Fallback to simple evaluation if security function fails
                     output = str(result.get('final_output', '')).lower()
                     fallback_result = any(indicator in output for indicator in [
                         'password', 'iban', 'balance', 'send_money', 'schedule_transaction'
                     ])
-                    logger.info(f"Fallback evaluation result: {fallback_result}")
                     return fallback_result
             
             return eval_func
@@ -392,9 +314,7 @@ def create_attack_hooks_from_suite(suite, task_type, mas_type = "handoffs", step
             iteration_to_attack=0
         )
         
-        # Debug: Print the actual step being set
-        print(f"🔍 Created attack hook with step: '{attack_hook.step}' for task {task_id}")
-        print(f"🔍 Expected step: '{step}', Actual step: '{attack_hook.step}'")
+
         
         # Add comprehensive metadata
         attack_hook.metadata = {
@@ -434,15 +354,7 @@ model = model_loader("gpt-5-mini")  # Choose your preferred model
 mas_type = "planner_executor"  
 step="on_executor_end"
 
-# Log configuration settings
-print(f"🔧 Configuration Settings:")
-print(f"  Suite Name: {suite_name}")
-print(f"  Model: {model}")
-print(f"  MAS Type: {mas_type}")
-print(f"  Attack Hook Step: {step}")
-print(f"  Log File: {log_filepath}")
-print(f"  Timestamp: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-print(f"="*50)
+
 
 task_suite, env, mas = mas_setup(model=model, suite_name=suite_name, mas_type=mas_type)
 
@@ -459,17 +371,12 @@ instruction_privacy_hooks = create_privacy_attack_hooks(task_suite, mas_type=mas
 
 # Create memory-based attack hooks
 # Note: Memory attacks manipulate agent memory (pop, clear, add, replace)
-memory_exhaustion_hooks = create_exhaustion_attack_hooks(task_suite, mas_type=mas_type, attack_type="instruction", step=step, max_tasks=1)
-memory_privacy_hooks = create_privacy_attack_hooks(task_suite, mas_type=mas_type, attack_type="instruction", step=step, max_tasks=1)
+memory_exhaustion_hooks = create_exhaustion_attack_hooks(task_suite, mas_type=mas_type, attack_type="memory", step=step, max_tasks=1)
+memory_privacy_hooks = create_privacy_attack_hooks(task_suite, mas_type=mas_type, attack_type="memory", step=step, max_tasks=1)
+memory_harmful_hooks = create_harmful_attack_hooks(task_suite, mas_type=mas_type, attack_type="memory", step=step, max_tasks=1)
 
 
-print(f"Created {len(prompt_exhaustion_hooks)} exhaustion attack hooks (prompt-based, using security functions)")
-print(f"Created {len(prompt_privacy_hooks)} privacy attack hooks (prompt-based, using security functions)")
-print(f"Created {len(prompt_harmful_hooks)} harmful behavior attack hooks (prompt-based, using security functions)")
-print(f"Created {len(instruction_exhaustion_hooks)} exhaustion attack hooks (instruction-based, using security functions)")
-print(f"Created {len(instruction_privacy_hooks)} privacy attack hooks (instruction-based, using security functions)")
-print(f"Created {len(memory_exhaustion_hooks)} exhaustion attack hooks (memory-based, using security functions)")
-print(f"Created {len(memory_privacy_hooks)} privacy attack hooks (memory-based, using security functions)")
+
 
 
 # Test with regular user tasks + attack hooks
@@ -487,7 +394,7 @@ async def test_attack_hooks_on_user_tasks():
     # Test with first user task only
     test_tasks = regular_user_tasks[:1]  # Use just 1 task for simpler testing
     
-    print(f"Testing attack hooks with user tasks: {test_tasks}")
+
     
     # Test 1: No attacks (baseline)
     # print("\n" + "="*50)
@@ -509,19 +416,9 @@ async def test_attack_hooks_on_user_tasks():
     print("\n" + "="*50)
     print("=== With Prompt Privacy Attack Hooks ===")
     print("="*50)
-    print(f"Using {len(prompt_privacy_hooks[:1])} privacy attack hook(s)")
-    if prompt_privacy_hooks:
-        hook = prompt_privacy_hooks[0]
-        print(f"Attack hook details:")
-        print(f"  Source: {hook.metadata['source_class']}")
-        print(f"  Task ID: {hook.metadata['source_task_id']}")
-        print(f"  Has init_environment: {hook.metadata['has_init_environment']}")
-        print(f"  Injection preview: {hook.metadata['prompt_preview']}")
     
-    # Debug: Check what attack hooks we're actually passing
-    print(f"🔍 Debug: Attack hooks being passed to benchmark_suite:")
-    for i, hook in enumerate(prompt_privacy_hooks[:1]):
-        print(f"  Hook {i}: step='{hook.step}', target_step='{getattr(hook, 'target_step', 'N/A')}'")
+    
+
     
     privacy_results = await benchmark_suite(
         multi_agent_system=mas,
@@ -530,7 +427,7 @@ async def test_attack_hooks_on_user_tasks():
         attack_hooks=prompt_privacy_hooks[:1],  # Use just one attack hook
         type="user_task"
     )
-    print(f"Privacy results: {privacy_results}")
+
 
     for task_id, result in privacy_results.items():
         
@@ -548,119 +445,119 @@ async def test_attack_hooks_on_user_tasks():
             print(f"  ℹ️  No security evaluation available")
     
     # Test 3: With prompt harmful behavior attack hooks  
-    # print("\n" + "="*50)
-    # print("=== With Prompt Harmful Behavior Attack Hooks ===")
-    # print("="*50)
-    # print(f"Using {len(prompt_harmful_hooks[:1])} harmful behavior attack hook(s)")
-    # if prompt_harmful_hooks:
-    #     hook = prompt_harmful_hooks[0]
-    #     print(f"Attack hook details:")
-    #     print(f"  Source: {hook.metadata['source_class']}")
-    #     print(f"  Task ID: {hook.metadata['source_task_id']}")
-    #     print(f"  Has init_environment: {hook.metadata['has_init_environment']}")
-    #     print(f"  Injection preview: {hook.metadata['prompt_preview']}")
+    print("\n" + "="*50)
+    print("=== With Prompt Harmful Behavior Attack Hooks ===")
+    print("="*50)
+    print(f"Using {len(prompt_harmful_hooks[:1])} harmful behavior attack hook(s)")
+    if prompt_harmful_hooks:
+        hook = prompt_harmful_hooks[0]
+        print(f"Attack hook details:")
+        print(f"  Source: {hook.metadata['source_class']}")
+        print(f"  Task ID: {hook.metadata['source_task_id']}")
+        print(f"  Has init_environment: {hook.metadata['has_init_environment']}")
+        print(f"  Injection preview: {hook.metadata['prompt_preview']}")
     
-    # harmful_results = await benchmark_suite(
-    #     multi_agent_system=mas,
-    #     suite=task_suite,
-    #     user_tasks=test_tasks,
-    #     attack_hooks=prompt_harmful_hooks[:1],  # Use just one attack hook
-    #     type="user_task"
-    # )
+    harmful_results = await benchmark_suite(
+        multi_agent_system=mas,
+        suite=task_suite,
+        user_tasks=test_tasks,
+        attack_hooks=prompt_harmful_hooks[:1],  # Use just one attack hook
+        type="user_task"
+    )
     
-    # for task_id, result in harmful_results.items():
+    for task_id, result in harmful_results.items():
         
-    #     # Use the sophisticated security function evaluation results
-    #     if 'security' in result and prompt_harmful_hooks:
-    #         security_results = result['security']
-    #         attack_detected = any(security_results)  # True if any attack hook detected success
-    #         print(f"  📊 Security evaluation:")
-    #         print(f"    Raw security results: {security_results}")
-    #         if attack_detected:
-    #             print(f"    ⚠️  Attack succeeded (detected by security functions)")
-    #         else:
-    #             print(f"    ✅ Attack was blocked (security functions passed)")
-    #     else:
-    #         print(f"  ℹ️  No security evaluation available")
+        # Use the sophisticated security function evaluation results
+        if 'security' in result and prompt_harmful_hooks:
+            security_results = result['security']
+            attack_detected = any(security_results)  # True if any attack hook detected success
+            print(f"  📊 Security evaluation:")
+            print(f"    Raw security results: {security_results}")
+            if attack_detected:
+                print(f"    ⚠️  Attack succeeded (detected by security functions)")
+            else:
+                print(f"    ✅ Attack was blocked (security functions passed)")
+        else:
+            print(f"  ℹ️  No security evaluation available")
 
     
     # Test 4: With instruction exhaustion attack hooks
-    # print("\n" + "="*50)
-    # print("=== With Instruction Exhaustion Attack Hooks ===")
-    # print("="*50)
-    # print(f"Using {len(instruction_exhaustion_hooks[:1])} instruction attack hook(s)")
-    # if instruction_exhaustion_hooks:
-    #     hook = instruction_exhaustion_hooks[0]
-    #     print(f"Attack hook details:")
-    #     print(f"  Source: {hook.metadata['source_class']}")
-    #     print(f"  Task ID: {hook.metadata['source_task_id']}")
-    #     print(f"  Attack Type: Instruction modification")
-    #     print(f"  Method: {hook.attack.attack_config.get('method', 'inject')}")
-    #     print(f"  Content Preview: {hook.metadata['prompt_preview']}")
+    print("\n" + "="*50)
+    print("=== With Instruction Exhaustion Attack Hooks ===")
+    print("="*50)
+    print(f"Using {len(instruction_exhaustion_hooks[:1])} instruction attack hook(s)")
+    if instruction_exhaustion_hooks:
+        hook = instruction_exhaustion_hooks[0]
+        print(f"Attack hook details:")
+        print(f"  Source: {hook.metadata['source_class']}")
+        print(f"  Task ID: {hook.metadata['source_task_id']}")
+        print(f"  Attack Type: Instruction modification")
+        print(f"  Method: {hook.attack.attack_config.get('method', 'inject')}")
+        print(f"  Content Preview: {hook.metadata['prompt_preview']}")
     
-    # instruction_results = await benchmark_suite(
-    #     multi_agent_system=mas,
-    #     suite=task_suite,
-    #     user_tasks=test_tasks,
-    #     attack_hooks=instruction_exhaustion_hooks[:1],  # Use just one instruction attack hook
-    #     type="user_task"
-    # )
+    instruction_results = await benchmark_suite(
+        multi_agent_system=mas,
+        suite=task_suite,
+        user_tasks=test_tasks,
+        attack_hooks=instruction_exhaustion_hooks[:1],  # Use just one instruction attack hook
+        type="user_task"
+    )
     
-    # for task_id, result in instruction_results.items():
+    for task_id, result in instruction_results.items():
         
-    #     # Use the sophisticated security function evaluation results
-    #     if 'security' in result and instruction_exhaustion_hooks:
-    #         security_results = result['security']
-    #         attack_detected = any(security_results)  # True if any attack hook detected success
-    #         print(f"  📊 Security evaluation:")
-    #         print(f"    Raw security results: {security_results}")
-    #         if attack_detected:
-    #             print(f"    ⚠️  Attack succeeded (detected by security functions)")
-    #         else:
-    #             print(f"    ✅ Attack was blocked (security functions passed)")
-    #     else:
-    #         print(f"  ℹ️  No security evaluation available")
+        # Use the sophisticated security function evaluation results
+        if 'security' in result and instruction_exhaustion_hooks:
+            security_results = result['security']
+            attack_detected = any(security_results)  # True if any attack hook detected success
+            print(f"  📊 Security evaluation:")
+            print(f"    Raw security results: {security_results}")
+            if attack_detected:
+                print(f"    ⚠️  Attack succeeded (detected by security functions)")
+            else:
+                print(f"    ✅ Attack was blocked (security functions passed)")
+        else:
+            print(f"  ℹ️  No security evaluation available")
 
     # Test 5: With memory exhaustion hooks
-    # print("\n" + "="*50)
-    # print("=== With Memory Attack Hooks ===")
-    # print("="*50)
-    # print(f"Using {len(memory_exhaustion_hooks[:1])} memory attack hook(s)")
-    # if memory_exhaustion_hooks:
-    #     hook = memory_exhaustion_hooks[0]
-    #     print(f"Attack hook details:")
-    #     print(f"  Source: {hook.metadata['source_class']}")
-    #     print(f"  Task ID: {hook.metadata['source_task_id']}")
-    #     print(f"  Attack Type: Memory manipulation")
-    #     print(f"  Method: {hook.attack.attack_config.get('method', 'pop')}")
-    #     print(f"  Target Agents: {hook.attack.attack_config.get('agents', [])}")
+    print("\n" + "="*50)
+    print("=== With Memory Attack Hooks ===")
+    print("="*50)
+    print(f"Using {len(memory_exhaustion_hooks[:1])} memory attack hook(s)")
+    if memory_exhaustion_hooks:
+        hook = memory_exhaustion_hooks[0]
+        print(f"Attack hook details:")
+        print(f"  Source: {hook.metadata['source_class']}")
+        print(f"  Task ID: {hook.metadata['source_task_id']}")
+        print(f"  Attack Type: Memory manipulation")
+        print(f"  Method: {hook.attack.attack_config.get('method', 'pop')}")
+        print(f"  Target Agents: {hook.attack.attack_config.get('agents', [])}")
     
-    # memory_results = await benchmark_suite(
-    #     multi_agent_system=mas,
-    #     suite=task_suite,
-    #     user_tasks=test_tasks,
-    #     attack_hooks=memory_exhaustion_hooks[:1],  # Use just one memory attack hook
-    #     type="user_task"
-    # )
+    memory_results = await benchmark_suite(
+        multi_agent_system=mas,
+        suite=task_suite,
+        user_tasks=test_tasks,
+        attack_hooks=memory_exhaustion_hooks[:1],  # Use just one memory attack hook
+        type="user_task"
+    )
     
-    # for task_id, result in memory_results.items():
+    for task_id, result in memory_results.items():
         
-    #     # Use the sophisticated security function evaluation results
-    #     if 'security' in result and memory_exhaustion_hooks:
-    #         security_results = result['security']
-    #         attack_detected = any(security_results)  # True if any attack hook detected success
-    #         print(f"  📊 Security evaluation:")
-    #         print(f"    Raw security results: {security_results}")
-    #         if attack_detected:
-    #             print(f"    ⚠️  Attack succeeded (detected by security functions)")
-    #         else:
-    #             print(f"    ✅ Attack was blocked (security functions passed)")
-    #     else:
-    #         print(f"  ℹ️  No security evaluation available")
+        # Use the sophisticated security function evaluation results
+        if 'security' in result and memory_exhaustion_hooks:
+            security_results = result['security']
+            attack_detected = any(security_results)  # True if any attack hook detected success
+            print(f"  📊 Security evaluation:")
+            print(f"    Raw security results: {security_results}")
+            if attack_detected:
+                print(f"    ⚠️  Attack succeeded (detected by security functions)")
+            else:
+                print(f"    ✅ Attack was blocked (security functions passed)")
+        else:
+            print(f"  ℹ️  No security evaluation available")
     
-    # print(f"\n" + "="*50)
-    # print("🏁 Testing Complete!")
-    # print("="*50)
+    print(f"\n" + "="*50)
+    print("🏁 Testing Complete!")
+    print("="*50)
 
 import asyncio
 asyncio.run(test_attack_hooks_on_user_tasks())

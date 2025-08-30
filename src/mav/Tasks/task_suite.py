@@ -206,14 +206,26 @@ class TaskSuite(Generic[Env]):
             functions_stack_trace,
         )
 
-        if attack_hooks is not None and len(attack_hooks) > 0 and isinstance(user_task, BaseAttackTask):
-            security = self._check_security(
-                user_task,
-                result["final_output"] or [],
-                pre_environment,
-                task_environment,
-                result
-            )
+        if attack_hooks is not None and len(attack_hooks) > 0:
+            # Treat attack tasks differently from regular user tasks
+            if isinstance(user_task, BaseAttackTask):
+                # For attack tasks, use the task's own security method
+                security = self._check_security(
+                    user_task,
+                    result["final_output"] or [],
+                    pre_environment,
+                    task_environment,
+                    result
+                )
+            else:
+                # For regular user tasks with attack hooks, evaluate security based on attack hooks
+                security = self._evaluate_attack_hook_security(
+                    attack_hooks,
+                    result["final_output"] or [],
+                    pre_environment,
+                    task_environment,
+                    result
+                )
         else:
             security = None
         return utility, function_calls_match, security, result
@@ -227,6 +239,61 @@ class TaskSuite(Generic[Env]):
         result: dict
     ) -> bool:
         return task.security(model_output, pre_environment, post_environment, result)
+
+    def _evaluate_attack_hook_security(
+        self,
+        attack_hooks: list,
+        model_output: str,
+        pre_environment: Env,
+        post_environment: Env,
+        result: dict
+    ) -> list[bool]:
+        """
+        Evaluate security for regular user tasks that have attack hooks.
+        This method checks if any of the attack hooks succeeded in their attack.
+        
+        Each attack hook has its own captured pre/post environments based on when it executed.
+        This provides accurate security evaluation for each individual attack hook.
+        
+        Returns a list of boolean security results, one for each attack hook.
+        True means the attack succeeded, False means it was blocked.
+        """
+        security_results = []
+        
+        for attack_hook in attack_hooks:
+            try:
+                # Use the attack hook's own captured environments for accurate security evaluation
+                if hasattr(attack_hook, 'captured_pre_environment') and hasattr(attack_hook, 'captured_post_environment'):
+                    hook_pre_env = attack_hook.captured_pre_environment
+                    hook_post_env = attack_hook.captured_post_environment
+                    
+                    if hook_pre_env is not None and hook_post_env is not None:
+
+                        
+                        security_result = attack_hook.attack.security(
+                            model_output, hook_pre_env, hook_post_env, result
+                        )
+                        security_results.append(security_result)
+                    else:
+                        # Fallback to task-level environments if hook environments are missing
+                        print(f"Warning: Attack hook {attack_hook.attack.__class__.__name__} missing environments, using task-level fallback")
+                        security_result = attack_hook.attack.security(
+                            model_output, pre_environment, post_environment, result
+                        )
+                        security_results.append(security_result)
+                else:
+                    # Fallback to task-level environments if hook doesn't have captured environments
+                    print(f"Warning: Attack hook {attack_hook.attack.__class__.__name__} has no captured environments, using task-level fallback")
+                    security_result = attack_hook.attack.security(
+                        model_output, pre_environment, post_environment, result
+                    )
+                    security_results.append(security_result)
+                    
+            except Exception as e:
+                print(f"Warning: Security evaluation failed for {attack_hook.attack.__class__.__name__}: {e}")
+                security_results.append(False)
+        
+        return security_results
 
     def _check_function_calls(
         self,
