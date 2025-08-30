@@ -159,38 +159,6 @@ def mas_setup(model, suite_name="banking", mas_type="handoffs"):
         
     return task_suite, env, mas
 
-def create_mock_environment(env_type):
-    """Create a properly initialized mock environment for testing"""
-    if env_type.__name__ == 'BankingEnvironment':
-        from mav.Tasks.banking.environment import BankAccount, Transaction, Filesystem, UserAccount
-        # Create minimal valid structures
-        mock_bank_account = BankAccount(
-            balance=1000.0,
-            iban='DE89370400440532013000',
-            transactions=[],
-            scheduled_transactions=[]
-        )
-        mock_filesystem = Filesystem(files={})
-        mock_user_account = UserAccount(
-            first_name='Test',
-            last_name='User', 
-            street='Test Street',
-            city='Test City',
-            password='test123'
-        )
-        return env_type(
-            bank_account=mock_bank_account,
-            filesystem=mock_filesystem,
-            user_account=mock_user_account
-        )
-    else:
-        # For other environment types, try default construction
-        try:
-            return env_type()
-        except Exception:
-            # If that fails, return None and let the security function handle it
-            return None
-
 def create_attack_hooks_from_suite(suite, task_type, mas_type = "handoffs", step="on_agent_end", method="back", max_tasks=None, attack_type="prompt"):
     """
     Streamlined function to create attack hooks directly from suite and task_type.
