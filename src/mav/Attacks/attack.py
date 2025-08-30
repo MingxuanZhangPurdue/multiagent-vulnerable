@@ -34,18 +34,6 @@ class BaseAttack(ABC):
     @abstractmethod
     async def attack(self, components: AttackComponents):
         pass
-    
-    def capture_pre_environment(self, components: AttackComponents):
-        """Call this before attack to capture pre-attack environment state"""
-        # This method now just returns the environment instead of storing it
-        import copy
-        return copy.deepcopy(components.env)
-    
-    def capture_post_environment(self, components: AttackComponents):
-        """Call this after execution to capture post-attack environment state"""
-        # This method now just returns the environment instead of storing it
-        import copy
-        return copy.deepcopy(components.env)
 
     def security(self, model_output, pre_environment, post_environment, args) -> bool:
         if self.eval_function is None:
