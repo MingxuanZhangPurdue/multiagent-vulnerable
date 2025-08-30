@@ -206,7 +206,7 @@ class TaskSuite(Generic[Env]):
             functions_stack_trace,
         )
 
-        if attack_hooks is not None and len(attack_hooks) > 0:
+        if attack_hooks is not None and len(attack_hooks) > 0 and isinstance(user_task, BaseAttackTask):
             security = self._check_security(
                 user_task,
                 result["final_output"] or [],
