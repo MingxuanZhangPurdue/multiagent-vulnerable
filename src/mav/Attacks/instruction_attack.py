@@ -52,3 +52,5 @@ class InstructionAttack(BaseAttack):
         else:
             raise ValueError("Invalid content type specified. Supported types are 'str' and 'dict'.")
     
+    # Security method inherited from BaseAttack
+    # Override if you need custom logic, otherwise BaseAttack.security() will work

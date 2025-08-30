@@ -28,13 +28,35 @@ class BaseAttack(ABC):
     def __init__(self, attack_config: dict[str, Any] = None, eval_function: Callable = None):
         self.attack_config = attack_config
         self.eval_function = eval_function
+        # self.pre_environment = None
+        # self.post_environment = None
 
     @abstractmethod
     async def attack(self, components: AttackComponents):
         pass
+    
+    def capture_pre_environment(self, components: AttackComponents):
+        """Call this before attack to capture pre-attack environment state"""
+        # This method now just returns the environment instead of storing it
+        import copy
+        return copy.deepcopy(components.env)
+    
+    def capture_post_environment(self, components: AttackComponents):
+        """Call this after execution to capture post-attack environment state"""
+        # This method now just returns the environment instead of storing it
+        import copy
+        return copy.deepcopy(components.env)
 
-    def security(self, args) -> bool:
+    def security(self, model_output, pre_environment, post_environment, args) -> bool:
         if self.eval_function is None:
             raise ValueError("Eval function is not set")
-        return self.eval_function(args)
+        
+        # Check if we have both environments available
+        if pre_environment is not None and post_environment is not None:
+            # Call eval_function with the signature that matches your task security functions:
+            # eval_function(model_output, pre_environment, post_environment, result)
+            return self.eval_function(model_output, pre_environment, post_environment, args)
+        else:
+            # Environments are required for security evaluation
+            raise ValueError(f"Both pre_environment and post_environment must be provided for security evaluation. Got pre_environment={pre_environment is not None}, post_environment={post_environment is not None}")
 

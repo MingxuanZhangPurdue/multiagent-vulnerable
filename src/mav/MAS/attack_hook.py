@@ -38,7 +38,60 @@ class AttackHook:
         self.attack_counter += 1
 
 def execute_attacks(attack_hooks: list[AttackHook], event_name: str, iteration: int, components: AttackComponents):
+    # print(f"Executing attacks for event: {event_name}")
+    # print(f"Total attack hooks available: {len(attack_hooks)}")
+    # print(f"Attack hook steps: {[hook.step for hook in attack_hooks]}")
+    
     attack_hooks_to_run = [attack for attack in attack_hooks if attack.step == event_name]
+    # print(f"🐛 Attack hooks to run: {attack_hooks_to_run}")
+    
+    # Store environments for each attack hook
+    attack_environments = {}
+    
     for attack_hook in attack_hooks_to_run:
+        # print(f"Executing attack hook with step: '{attack_hook.step}'")
+        
+        # Capture pre-attack environment if this is a start event
+        pre_env = None
+        if event_name.endswith("_start"):
+            if hasattr(attack_hook.attack, 'capture_pre_environment'):
+                pre_env = attack_hook.attack.capture_pre_environment(components)
+        
+        # Execute the attack
         attack_hook(iteration, components)
+        
+        # Capture post-attack environment if this is an end event
+        post_env = None
+        if event_name.endswith("_end"):
+            if hasattr(attack_hook.attack, 'capture_post_environment'):
+                post_env = attack_hook.attack.capture_post_environment(components)
+        
+        # Store environments for this attack hook
+        attack_environments[attack_hook] = {
+            'pre_environment': pre_env,
+            'post_environment': post_env
+        }
+        
+        # If we have both environments, we can evaluate security
+        if pre_env is not None and post_env is not None:
+            # Extract model_output from components
+            model_output = components.final_output
+            
+            # Call security evaluation with the new signature
+            try:
+                if hasattr(attack_hook.attack, 'security') and attack_hook.attack.eval_function is not None:
+                    # Create args dict similar to what benchmark_suite provides
+                    args = {
+                        'final_output': model_output,
+                        'env': post_env,  # Include post environment in args
+                        'iteration': iteration,
+                        'event_name': event_name
+                    }
+                    
+                    # Call security with the new 4-parameter signature
+                    security_result = attack_hook.attack.security(model_output, pre_env, post_env, args)
+                    print(f"🔒 Security evaluation result: {security_result}")
+                    
+            except Exception as e:
+                print(f"❌ Error during security evaluation: {e}")
 
