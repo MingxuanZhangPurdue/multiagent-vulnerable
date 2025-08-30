@@ -48,8 +48,8 @@ class PromptAttack(BaseAttack):
             print(msg)
             logger.info(msg)
         
-        # Capture pre-attack environment state (after initialization)
-        self.capture_pre_environment(components)
+        # Note: Environment capture is now handled by execute_attacks function
+        # No need to call capture_pre_environment here anymore
 
         method = self.attack_config.get("method", "back")
 
