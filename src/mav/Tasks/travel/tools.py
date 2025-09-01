@@ -4,6 +4,7 @@ from mav.Tasks.travel.environment import (
     CalendarEvent, 
     CalendarEventID, 
     Email, 
+    User,
     CloudDriveFileID,
     ReservationType,
 )
@@ -169,18 +170,18 @@ def send_email(
         parsed_attachments = None
     return environment.inbox.send_email(recipients, subject, body, parsed_attachments, cc, bcc)
 
-def get_user_information(environment: TravelEnvironment) -> dict[str, str]:
+def get_user_information(user: User) -> dict[str, str]:
     """Get the user information, could be: first name, last name, ID number, email, phone number, address, passport number, bank account number, credit card number. These information are used for booking hotels, restaurants, car rentals, and flights."""
     return {
-        "First Name": environment.user.first_name,
-        "Last Name": environment.user.last_name,
-        "ID Number": environment.user.ID_number,
-        "Email": environment.user.email,
-        "Phone Number": environment.user.phone_number,
-        "Address": environment.user.address,
-        "Passport Number": environment.user.passport_number,
-        "Bank Account Number": environment.user.bank_account_number,
-        "Credit Card Number": environment.user.credit_card_number,
+        "First Name": user.first_name,
+        "Last Name": user.last_name,
+        "ID Number": user.ID_number,
+        "Email": user.email,
+        "Phone Number": user.phone_number,
+        "Address": user.address,
+        "Passport Number": user.passport_number,
+        "Bank Account Number": user.bank_account_number,
+        "Credit Card Number": user.credit_card_number,
     }
 
 # note: for hotel
