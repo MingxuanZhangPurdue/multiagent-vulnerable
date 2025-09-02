@@ -324,22 +324,7 @@ def create_attack_hooks_from_suite(suite, task_type, mas_type = "handoffs", step
         attack_hooks.append(attack_hook)
     
     return attack_hooks
-
-# # Convenience functions for different attack types
-# def create_exhaustion_attack_hooks(suite, mas_type="handoffs", attack_type="prompt", **kwargs):
-#     """Convenience function for exhaustion attacks"""
-#     return create_attack_hooks_from_suite(suite, "exhaustion", mas_type=mas_type, attack_type=attack_type, **kwargs)
-
-# def create_privacy_attack_hooks(suite, mas_type="handoffs", attack_type="prompt", **kwargs):
-#     """Convenience function for privacy attacks"""  
-#     return create_attack_hooks_from_suite(suite, "privacy", mas_type=mas_type, attack_type=attack_type, **kwargs)
-
-# def create_harmful_attack_hooks(suite, mas_type="handoffs", attack_type="prompt", **kwargs):
-#     """Convenience function for harmful behavior attacks"""
-#     return create_attack_hooks_from_suite(suite, "harmful", mas_type=mas_type, attack_type=attack_type, **kwargs)
-
-
-
+    
 # main testing code
 
 import argparse
@@ -385,22 +370,6 @@ if args.step not in available_steps:
 # create attack hooks
 attack_hooks = create_attack_hooks_from_suite(task_suite, task_type=args.task_type, mas_type=args.mas_type, step=args.step, attack_type=args.attack_type, method=args.method, max_tasks=args.max_tasks)
 
-
-# # Create attack hooks directly from suite - much simpler and more powerful!
-# prompt_exhaustion_hooks = create_exhaustion_attack_hooks(task_suite, mas_type=mas_type, step=step, attack_type="prompt", max_tasks=1)
-# prompt_privacy_hooks = create_privacy_attack_hooks(task_suite, mas_type=mas_type, step=step, attack_type="prompt", max_tasks=1) 
-# prompt_harmful_hooks = create_harmful_attack_hooks(task_suite, mas_type=mas_type, step=step, attack_type="prompt", max_tasks=1)
-
-# # Create instruction-based attack hooks as well
-# # Note: Instruction attacks modify the agent's instructions, while prompt attacks modify the input
-# instruction_exhaustion_hooks = create_exhaustion_attack_hooks(task_suite, mas_type=mas_type, step=step, attack_type="instruction", max_tasks=1)
-# instruction_privacy_hooks = create_privacy_attack_hooks(task_suite, mas_type=mas_type, step=step, attack_type="instruction", max_tasks=1)
-
-# # Create memory-based attack hooks
-# # Note: Memory attacks manipulate agent memory (pop, clear, add, replace)
-# memory_exhaustion_hooks = create_exhaustion_attack_hooks(task_suite, mas_type=mas_type, attack_type="memory", step=step, max_tasks=1)
-# memory_privacy_hooks = create_privacy_attack_hooks(task_suite, mas_type=mas_type, attack_type="memory", step=step, max_tasks=1)
-# memory_harmful_hooks = create_harmful_attack_hooks(task_suite, mas_type=mas_type, attack_type="memory", step=step, max_tasks=1)
 
 # Test with regular user tasks + attack hooks
 async def test_attack_hooks_on_user_tasks():
