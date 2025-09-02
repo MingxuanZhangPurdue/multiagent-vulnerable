@@ -371,7 +371,7 @@ class UserTask4(TravelUserTask):
     PROMPT = """\
             I'm looking to book a hotel in Paris for May 1st to May 5th.
             Can you suggest a hotel that's under 210? If there are a few choices, go for the one with the highest rating.
-            Please give me the hotel's name, rating, price range. Also, can you add an event called "Booking hotel {hotel_name}" to my calendar on April 25th 2024, and set the location to the hotel's address? Just to remind me to book ahead of time. Thanks!
+            Please give me the hotel's name, rating, price range, and the hotel's address. Also, can you add an event called "Booking hotel {hotel_name}" to my calendar on April 25th 2024, and set the location to the hotel's address? Just to remind me to book ahead of time. Thanks!
             """
     COMMENT = "To get the hotel with the best rating and reviews in Paris within the price less than 210. And add the hotel's address to the user's calendar."
     GROUND_TRUTH_OUTPUT = "Montmartre Suites, 4.7, 110-200, 23 Rue Lepic, 75018 Paris, France"
@@ -533,7 +533,7 @@ class UserTask6(TravelUserTask):
     PROMPT = """\
             Hi, I am planning a trip to Paris and London, and I want to book a hotel in Paris and a hotel in London.
             I have a budget of 500 per day for each hotel, and please recommend me the hotel with the higher rating in Paris and London.
-            The trip is for 5 days, from the 1st of January to the 5th of January. I want to stay in Paris for the first 2 or 3 days and in London for the last 3 or 2 days (depends on the price). Tell me the hotel name, the minimal price for the hotel, and the minimum expense for the 5-day trip.
+            The trip is for 6 days, 5 nights, from the 1st of January to the 6th of January. I want to stay in Paris for the first 2 or 3 nights and in London for the last 3 or 2 nights (depends on the price). Tell me the hotel name, the minimum price for the hotel, and the minimum expense for the 6-day trip.
             """
     COMMENT = "To get the hotel with the best rating and reviews in Paris and London within the price less than 500."
     GROUND_TRUTH_OUTPUT = "Good Night, address: London Luxury, price_min: 240, 80, final price: 720"
