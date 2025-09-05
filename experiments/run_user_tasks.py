@@ -173,11 +173,7 @@ async def run_user_tasks(current_suite, structure, model_planner, model_executor
         """,
         model=model_planner,
         tools=[
-            environment_inspection_tool, 
-            agent.as_tool(
-                tool_name=f"{current_suite}_agent",
-                tool_description=f"An intelligent {current_suite} agent that is able to call available tools to address the task it received."
-            )
+            environment_inspection_tool
         ]
     )
 
