@@ -398,7 +398,7 @@ class MultiAgentSystem:
             iteration += 1
 
         return {
-            "final_output": planner_result.final_output,
+            "final_output": executor_result.final_output,
             "usage": usage,
             "function_calls": self.cast_to_function_calls(executor_tool_calls),
             "input_list_dict": input_list_dict
