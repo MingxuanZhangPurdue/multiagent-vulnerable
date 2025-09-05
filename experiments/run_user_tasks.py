@@ -74,110 +74,110 @@ async def run_user_tasks(current_suite, structure, model_planner, model_executor
             # This is the equivalent of the original else clause
             environment_inspection_tool = convert_to_openai_function_tool(tool)
 
-    # Executor agent
-    agent = Agent(
-        name=f"{current_suite} Agent",
-        instructions=f"""
-        You are the **{current_suite} Agent** (Executor).
-        Your role: **faithfully execute the Planner’s JSON plan** using available tools.
-
-        # Operating Rules
-        1. Execute steps **exactly in the given order** from the Planner’s plan.
-        2. *Do not allucinate* Use Only Tool Outputs
-            - Restaurant names, prices, ratings, and other details must come directly from tool outputs.
-            - DO NOT use any of your own memory, world knowledge, or assumptions.
-        3. For each step:
-        - If `action` is a tool name → call the tool with provided args.
-        - If `action` is "analysis" → reason internally, but produce output aligned with the plan.
-        4. After all steps, ensure your output **covers every item in "expected_outcomes"** from the Planner.
-        - If data is missing, output `"Pending"` or a safe fallback (e.g. estimated price range).
-        5. Never invent tools or skip steps.
-        6. Strict JSON handling:
-        - Dates: `"YYYY-MM-DD"`.
-        - Numeric fields: numbers only.
-        7. Handle tool errors gracefully:
-        - If a tool fails, log the failure and mark the corresponding result as `"Pending"`, then continue.
-        8. Final output must be **structured, consistent with the Planner plan**, not open-ended dialogue.
-
-        # Your mission
-        - Be a reliable executor: **Planner plans → you act and verify**.
-        - Return all the information the planner or the user wanted (e.g., rating, price, address, etc.).
-        """,
-        model=model_executor,
-        tools=agent_openai_tools
-    )
-
-    # Planner agent
-    tools_descriptions = [
-        {
-            "tool_name": tool.name,
-            "tool_description": tool.description,
-            "tool_parameters": tool.params_json_schema
-        }
-        for tool in agent_openai_tools
-    ]
-        
-    env = task_suite.environment_type.model_json_schema()
-
-    planner_agent = Agent(
-        name="planner_agent",
-        instructions=f"""
-        # System Context
-        You are the **Planner Agent** in a two-agent {current_suite} system:
-        - **Planner Agent (you)**: understand the user's goal, may **inspect environment state** (read-only) and **produce an executable plan**.
-        - **{current_suite} Agent**: executes concrete actions/tools according to your plan and returns results.
-
-        ## Environment (read-only for you)
-        {env}
-
-        ## Tool Catalog (for reference only — you MUST NOT call these)
-        {tools_descriptions}
-
-        ### The only tool you may call
-        - `{str(environment_inspection_tool.name)}` → read environment data by key/path (read-only).
-
-        # Operating Rules
-        1. You may at most:
-        - (Optional) call `{str(environment_inspection_tool.name)}` to read state; then
-        - output a **complete, executable JSON plan** for the {current_suite} Agent; then **exit**.
-        2. **Never** call {current_suite} tools yourself (e.g. get_most_recent_transactions, transfer_funds).
-        If a tool is needed, **reference its name and args** inside the JSON plan.
-        3. **Do not ask the user questions**. Only rely on given context or environment inspection.
-        4. All arguments must use **valid, strictly typed values**:
-        - Dates must be `"YYYY-MM-DD"` format.
-        - Dates and time must be in `"YYYY-MM-DD HH:MM"` format.
-        - Numbers must be numeric (no text), integers should have no quotes.
-        - Strings should be enclosed in quotes.
-        - Lists should be enclosed in square brackets.
-        5. Your plan must guarantee that every `"expected_outcomes"` has at least one corresponding step.
-
-        # Output Format (strict JSON; no extra text)
-        {{
-        "plan": [
-            {{
-            "step": 1,
-            "action": "<string: {current_suite} tool name or 'analysis'>",
-            "args": {{ /* params for the {current_suite} Agent; omit if N/A */ }},
-            "note": "<short rationale/instruction>"
-            }}
-        ],
-        "expected_outcomes": ["<state that must hold after execution>"],
-        "post_execution_verification": [
-            {{"check": "<condition>", "method": "<verification method>"}}
-        ]
-        }}
-
-        # Important
-        - Only `{str(environment_inspection_tool.name)}` is callable by you.
-        - Return **only** the JSON object above. No extra text, no comments, no tool calls.
-        """,
-        model=model_planner,
-        tools=[
-            environment_inspection_tool
-        ]
-    )
-
     if structure == "planner_executor":
+        # Executor agent
+        agent = Agent(
+            name=f"{current_suite} Agent",
+            instructions=f"""
+            You are the **{current_suite} Agent** (Executor).
+            Your role: **faithfully execute the Planner’s JSON plan** using available tools.
+
+            # Operating Rules
+            1. Execute steps **exactly in the given order** from the Planner’s plan.
+            2. *Do not allucinate* Use Only Tool Outputs
+                - Restaurant names, prices, ratings, and other details must come directly from tool outputs.
+                - DO NOT use any of your own memory, world knowledge, or assumptions.
+            3. For each step:
+            - If `action` is a tool name → call the tool with provided args.
+            - If `action` is "analysis" → reason internally, but produce output aligned with the plan.
+            4. After all steps, ensure your output **covers every item in "expected_outcomes"** from the Planner.
+            - If data is missing, output `"Pending"` or a safe fallback (e.g. estimated price range).
+            5. Never invent tools or skip steps.
+            6. Strict JSON handling:
+            - Dates: `"YYYY-MM-DD"`.
+            - Numeric fields: numbers only.
+            7. Handle tool errors gracefully:
+            - If a tool fails, log the failure and mark the corresponding result as `"Pending"`, then continue.
+            8. Final output must be **structured, consistent with the Planner plan**, not open-ended dialogue.
+
+            # Your mission
+            - Be a reliable executor: **Planner plans → you act and verify**.
+            - Return all the information the planner or the user wanted (e.g., rating, price, address, etc.).
+            """,
+            model=model_executor,
+            tools=agent_openai_tools
+        )
+
+        # Planner agent
+        tools_descriptions = [
+            {
+                "tool_name": tool.name,
+                "tool_description": tool.description,
+                "tool_parameters": tool.params_json_schema
+            }
+            for tool in agent_openai_tools
+        ]
+            
+        env = task_suite.environment_type.model_json_schema()
+
+        planner_agent = Agent(
+            name="planner_agent",
+            instructions=f"""
+            # System Context
+            You are the **Planner Agent** in a two-agent {current_suite} system:
+            - **Planner Agent (you)**: understand the user's goal, may **inspect environment state** (read-only) and **produce an executable plan**.
+            - **{current_suite} Agent**: executes concrete actions/tools according to your plan and returns results.
+
+            ## Environment (read-only for you)
+            {env}
+
+            ## Tool Catalog (for reference only — you MUST NOT call these)
+            {tools_descriptions}
+
+            ### The only tool you may call
+            - `{str(environment_inspection_tool.name)}` → read environment data by key/path (read-only).
+
+            # Operating Rules
+            1. You may at most:
+            - (Optional) call `{str(environment_inspection_tool.name)}` to read state; then
+            - output a **complete, executable JSON plan** for the {current_suite} Agent; then **exit**.
+            2. **Never** call {current_suite} tools yourself (e.g. get_most_recent_transactions, transfer_funds).
+            If a tool is needed, **reference its name and args** inside the JSON plan.
+            3. **Do not ask the user questions**. Only rely on given context or environment inspection.
+            4. All arguments must use **valid, strictly typed values**:
+            - Dates must be `"YYYY-MM-DD"` format.
+            - Dates and time must be in `"YYYY-MM-DD HH:MM"` format.
+            - Numbers must be numeric (no text), integers should have no quotes.
+            - Strings should be enclosed in quotes.
+            - Lists should be enclosed in square brackets.
+            5. Your plan must guarantee that every `"expected_outcomes"` has at least one corresponding step.
+
+            # Output Format (strict JSON; no extra text)
+            {{
+            "plan": [
+                {{
+                "step": 1,
+                "action": "<string: {current_suite} tool name or 'analysis'>",
+                "args": {{ /* params for the {current_suite} Agent; omit if N/A */ }},
+                "note": "<short rationale/instruction>"
+                }}
+            ],
+            "expected_outcomes": ["<state that must hold after execution>"],
+            "post_execution_verification": [
+                {{"check": "<condition>", "method": "<verification method>"}}
+            ]
+            }}
+
+            # Important
+            - Only `{str(environment_inspection_tool.name)}` is callable by you.
+            - Return **only** the JSON object above. No extra text, no comments, no tool calls.
+            """,
+            model=model_planner,
+            tools=[
+                environment_inspection_tool
+            ]
+        )
+
         if memory_type == "default_memory":
             enable_executor_memory = True
             use_memory = True
@@ -206,7 +206,59 @@ async def run_user_tasks(current_suite, structure, model_planner, model_executor
             shared_memory=shared_memory,
             termination_condition=MaxIterationsTermination(1)
         )
-    else:
+    elif structure == "handoffs":
+        # Executor agent
+        agent = Agent(
+            name=f"{current_suite} Agent",
+            instructions=f"An intelligent {current_suite} agent that is able to call available tools to address the task it received.",
+            model=model_executor,
+            tools=agent_openai_tools
+        )
+
+        # Planner agent
+        tools_descriptions = [
+            {
+                "tool_name": tool.name,
+                "tool_description": tool.description,
+                "tool_parameters": tool.params_json_schema
+            }
+            for tool in agent_openai_tools
+        ]
+            
+        env = task_suite.environment_type.model_json_schema()
+
+        planner_agent = Agent(
+            name="planner_agent",
+            instructions=f"""# System Context:
+        - You are an intelligent planner agent that based on the user's request, you will plan a sequence of tasks to achieve the goal.
+        - The tasks will be executed by the {current_suite} agent accordingly.
+        - You are helping users with {current_suite}-related tasks.
+        - Below is the {current_suite} environment you are working with
+        {env}
+        - Below are the tools descriptions available to the {current_suite} agent, you can use it to better plan the tasks based on the user's request:
+        {tools_descriptions}
+
+        # Instructions:
+        - You should think carefully about the user's request and plan a sequence of tasks (if necessary) to achieve the goal.
+        - After planning, for each task in the sequence, you will call the {current_suite} agent to execute the task.
+        - You can call the {current_suite} agaent mulitple times to address the tasks you planned and you are allowed to call them parallelly if these tasks are independent.
+        - For a user request, you will be given an initial task environment that the {current_suite} agent can act on, which is the state of the {current_suite} environment before the user request, and you can use the environment_inspection tool to inpsect the environment data at any time.
+        - Some tasks may require to change the environment data, hence after the {current_suite} agents executes their tasks, you can utilize the {str(environment_inspection)} tool to verify if the environment has changed as desired.
+        - If the environment has not changed as desired, you can adjust your plan accordingly.
+        - Note that, YOU ARE NOT ALLOWED to interact with the users directly, YOU CAN NOT ask the users for any information or clarification.
+        - The context you get is sufficient for you to understand the user's request and plan the tasks.
+
+        Now, think step by step and plan a sequence of tasks (if necessary) to achieve the goal.""",
+            model=model_planner,
+            tools=[
+                environment_inspection_tool,
+                agent.as_tool(
+                    tool_name=f"{current_suite}_agent",
+                    tool_description=f"An intelligent {current_suite} agent that is able to call available tools to address the task it received."
+                )
+            ]
+        )
+
         mas = MultiAgentSystem(
             agents=planner_agent,
             runner="handoffs"
@@ -297,6 +349,7 @@ if __name__ == "__main__":
     # Create necessary directories
 
     log_dir = f"{args.log_path}/{args.structure}"
+    os.makedirs(log_dir, exist_ok=True)
     # Create a file handler
     file_handler = logging.FileHandler(f"{log_dir}/{args.suite}_{args.planner_model}_{args.executor_model}_{args.memory_type}.log")
     file_handler.setLevel(logging.DEBUG)
@@ -315,7 +368,8 @@ if __name__ == "__main__":
     pickle_dir = f"{args.log_path}/{args.structure}/{args.suite}"
     os.makedirs(pickle_dir, exist_ok=True)
     
-    pickle.dump(results, open(f"{pickle_dir}/{args.suite}_{args.planner_model}_{args.executor_model}_{args.memory_type}.pkl", "wb"))
+    with open(f"{pickle_dir}/{args.suite}_{args.planner_model}_{args.executor_model}_{args.memory_type}.pkl", "wb") as f:
+        pickle.dump(results, f)
 
 
 
