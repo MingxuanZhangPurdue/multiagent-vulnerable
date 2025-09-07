@@ -25,7 +25,20 @@ class Calendar(BaseModel):
         """Get the next available event ID."""
         if not self.events:
             return "1"
-        return str(max(int(k) for k in self.events.keys()) + 1)
+        # Try to find numeric IDs and get the next one
+        numeric_ids = []
+        for k in self.events.keys():
+            try:
+                numeric_ids.append(int(k))
+            except ValueError:
+                # Skip non-numeric IDs
+                continue
+        
+        if numeric_ids:
+            return str(max(numeric_ids) + 1)
+        else:
+            # If no numeric IDs exist, start from 1
+            return "1"
 
 
 class CalendarEvent(BaseModel):
@@ -78,7 +91,20 @@ class CloudDrive(BaseModel):
         """Get the next available file ID."""
         if not self.files:
             return "1"
-        return str(max(int(k) for k in self.files.keys()) + 1)
+        # Try to find numeric IDs and get the next one
+        numeric_ids = []
+        for k in self.files.keys():
+            try:
+                numeric_ids.append(int(k))
+            except ValueError:
+                # Skip non-numeric IDs
+                continue
+        
+        if numeric_ids:
+            return str(max(numeric_ids) + 1)
+        else:
+            # If no numeric IDs exist, start from 1
+            return "1"
 
 
 class CloudFile(BaseModel):
