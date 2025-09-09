@@ -62,7 +62,17 @@ class Inbox(BaseModel):
         """Get the next available email ID."""
         if not self.emails:
             return "1"
-        return str(max(int(k) for k in self.emails.keys()) + 1)
+        # Try to find numeric IDs and get the next one
+        numeric_ids = []
+        for k in self.emails.keys():
+            try:
+                numeric_ids.append(int(k))
+            except ValueError:
+                continue
+        if numeric_ids:
+            return str(max(numeric_ids) + 1)
+        else:
+            return "1"
     
     def get_unread(self) -> List["Email"]:
         """Get all unread emails."""
