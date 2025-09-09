@@ -201,8 +201,15 @@ class Inbox(BaseModel):
         return [email for email in self.emails.values() if email.sender.lower() == address.lower()]
 
     def _get_next_id(self) -> EmailID:
-        largest_id = max((int(key) for key in self.emails.keys()), default=0)
-        return EmailID(largest_id + 1)
+        numeric_ids = []
+        for key in self.emails.keys():
+            try:
+                numeric_ids.append(int(key))
+            except ValueError:
+                # Skip non-numeric IDs
+                continue
+        largest_id = max(numeric_ids, default=0)
+        return EmailID(str(largest_id + 1))
 
     def _get_emails_by_status(self, status: EmailStatus) -> list[Email]:
         return [email for email in self.emails.values() if email.status == status]
@@ -312,8 +319,15 @@ class Calendar(BaseModel):
         return self
 
     def _get_next_id(self) -> CalendarEventID:
-        largest_id = max((int(key) for key in self.events.keys()), default=0)
-        return CalendarEventID(largest_id + 1)
+        numeric_ids = []
+        for key in self.events.keys():
+            try:
+                numeric_ids.append(int(key))
+            except ValueError:
+                # Skip non-numeric IDs
+                continue
+        largest_id = max(numeric_ids, default=0)
+        return CalendarEventID(str(largest_id + 1))
 
     def get_by_day(self, day: datetime.date) -> list[CalendarEvent]:
         return [event for event in self.events.values() if event.start_time.date() == day]
