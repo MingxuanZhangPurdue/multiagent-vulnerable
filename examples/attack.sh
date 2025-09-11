@@ -13,9 +13,15 @@ declare -a SUITES=("workspace")
 declare -a PLANNER_MODELS=("gemini-2.5-flash")
 declare -a EXECUTOR_MODELS=("gemini-2.5-flash")
 
-declare -a API_KEYS=(
-    Your API key here
-)
+declare -a API_KEYS=()
+
+# Load API keys from environment variables (comma-separated). Example:
+#   export GEMINI_API_KEYS="key1,key2"  # for Gemini models
+#   export OPENAI_API_KEYS="key1,key2"  # for OpenAI models
+IFS=',' read -r -a _GEMINI_KEYS <<< "${GEMINI_API_KEYS:-}"
+IFS=',' read -r -a _OPENAI_KEYS <<< "${OPENAI_API_KEYS:-}"
+for k in "${_GEMINI_KEYS[@]}"; do [[ -n "$k" ]] && API_KEYS+=("$k"); done
+for k in "${_OPENAI_KEYS[@]}"; do [[ -n "$k" ]] && API_KEYS+=("$k"); done
 
 declare -a attack_type=("prompt")
 
