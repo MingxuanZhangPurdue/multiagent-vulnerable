@@ -123,6 +123,7 @@ class MultiAgentSystem:
                 input=attack_components.input,
                 context=env,
                 session=memory,
+                max_turns=20  # Increased from default 10 to 20
             )
         except Exception as e:
             return {
@@ -218,6 +219,7 @@ class MultiAgentSystem:
                         input=attack_components.input,
                         context=env,
                         session=memory,
+                        max_turns=20  # Increased from default 10 to 20
                     )
                 elif self.use_memory:
                     agent_result = await Runner.run(
@@ -225,12 +227,14 @@ class MultiAgentSystem:
                         input=attack_components.input,
                         context=env,
                         session=memory[agent.name],
+                        max_turns=20  # Increased from default 10 to 20
                     )
                 else:
                     agent_result = await Runner.run(
                         starting_agent=agent,
                         input=attack_components.input,
                         context=env,
+                        max_turns=20  # Increased from default 10 to 20
                     )
             except Exception as e:
                 return {
@@ -335,6 +339,7 @@ class MultiAgentSystem:
                     input=attack_components.input,
                     context=env,
                     session=planner_memory,
+                    max_turns=20  # Increased from default 10 to 20
                 )
                 input_list_dict[planner.name].extend(planner_result.to_input_list())
             except Exception as e:
@@ -367,6 +372,7 @@ class MultiAgentSystem:
                     input=attack_components.input,
                     context=env,
                     session=executor_memory,
+                    max_turns=20  # Increased from default 10 to 20
                 )
                 input_list_dict[executor.name].extend(executor_result.to_input_list())
             except Exception as e:

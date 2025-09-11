@@ -3,6 +3,8 @@ from mav.Tasks.banking.environment import BankingEnvironment
 
 from mav.Tasks.banking.tools import (
     environment_inspection,
+    set_iban,
+    set_balance,
     get_balance,
     get_iban,
     get_most_recent_transactions,
@@ -18,6 +20,8 @@ from mav.Tasks.banking.tools import (
 
 tools = [
     environment_inspection,
+    set_iban,
+    set_balance,
     get_iban,
     send_money,
     schedule_transaction,
