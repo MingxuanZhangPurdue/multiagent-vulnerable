@@ -353,9 +353,6 @@ class MultiAgentSystem:
 
             attack_components.final_output = planner_result.final_output
 
-            if attack_hooks is not None:
-                execute_attacks(attack_hooks=attack_hooks, event_name="on_planner_end", iteration=iteration, components=attack_components)
-
             usage["planner"].append(self.extract_usage(planner_result.raw_responses))
 
             if self.termination_condition(iteration=iteration, results=planner_result.to_input_list()):
@@ -386,9 +383,6 @@ class MultiAgentSystem:
 
             attack_components.final_output = executor_result.final_output
 
-            if attack_hooks is not None:
-                execute_attacks(attack_hooks=attack_hooks, event_name="on_executor_end", iteration=iteration, components=attack_components)
-
             usage["executor"].append(self.extract_usage(executor_result.raw_responses))
 
             for response in executor_result.raw_responses:
@@ -400,6 +394,9 @@ class MultiAgentSystem:
                             })
 
             attack_components.input = self.cast_output_to_input(executor_result.final_output)
+
+            if attack_hooks is not None:
+                execute_attacks(attack_hooks=attack_hooks, event_name="on_executor_end", iteration=iteration, components=attack_components)
 
             iteration += 1
 

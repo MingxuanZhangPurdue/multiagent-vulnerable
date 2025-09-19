@@ -5,33 +5,40 @@
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PYTHON_SCRIPT="$SCRIPT_DIR/attack_hooks.py"
 
-CONCURRENCY=1
+CONCURRENCY=4
+
+# Per-suite/user task/attack task limits
+MAX_USER_TASKS=1
+MAX_ATTACK_TASKS=10
 
 # Focus on Slack privacy testing
-declare -a SUITES=("workspace")
+declare -a SUITES=("banking" "slack" "workspace" "travel")
 
 declare -a PLANNER_MODELS=("gemini-2.5-flash")
 declare -a EXECUTOR_MODELS=("gemini-2.5-flash")
 
-declare -a API_KEYS=()
-
 # Load API keys from environment variables (comma-separated). Example:
 #   export GEMINI_API_KEYS="key1,key2"  # for Gemini models
 #   export OPENAI_API_KEYS="key1,key2"  # for OpenAI models
-IFS=',' read -r -a _GEMINI_KEYS <<< "${GEMINI_API_KEYS:-}"
-IFS=',' read -r -a _OPENAI_KEYS <<< "${OPENAI_API_KEYS:-}"
-for k in "${_GEMINI_KEYS[@]}"; do [[ -n "$k" ]] && API_KEYS+=("$k"); done
-for k in "${_OPENAI_KEYS[@]}"; do [[ -n "$k" ]] && API_KEYS+=("$k"); done
+declare -a API_KEYS=(
+  "API_KEY_1"
+)
 
 declare -a attack_type=("prompt")
 
 declare -a task_type=("privacy")
 
+# Available attack steps
+declare -a attack_steps=("on_executor_start" "on_executor_end")
+
 # Available prompt templates for harmful tasks
 declare -a harmful_prompt_templates=(
-    "direct_command"
-    "priority_escalation"
-    "stealth_injection"
+    "harmful_security_incident"
+    # "harmful_breach_response"
+    # "harmful_emergency_protocol"
+    # "harmful_critical_alert"
+    # "harmful_incident_response"
+    # "default"
 )
 
 # Enhanced privacy attack templates for better success with user tasks
@@ -39,7 +46,15 @@ declare -a harmful_prompt_templates=(
 # more natural and contextually appropriate prompts that reduce model security awareness
 declare -a privacy_prompt_templates=(
     "privacy_audit_preparation"
-    "privacy_emergency_planning"
+    # "privacy_emergency_planning"
+    # "privacy_ops_continuity"
+    # "privacy_compliance_audit"
+    # "privacy_account_recovery"
+    # "privacy_invoice_reconciliation"
+    # "privacy_trip_itinerary_sync"
+    # "privacy_workspace_single_source"
+    # "privacy_hr_verification"
+    # "privacy_security_log_match"
 )
 
 basename_no_ext () {
@@ -59,11 +74,10 @@ pick_key () {
 
 is_target_combo () {
   local p="$1" e="$2"
-  [[ 
-    ( "$p" == "gemini-2.5-flash" && "$e" == "gemini-2.5-flash" ) ||
-    ( "$p" == "gpt-5-mini" && "$e" == "gpt-5-mini" ) ||
-    ( "$p" == "gpt-5" && "$e" == "gpt-5-nano" ) ||
-    ( "$p" == "gpt-5-mini" && "$e" == "gpt-5-nano" ) ]]
+  [[ \
+    ( "$p" == "gpt-5-mini" && "$e" == "gpt-5-nano" ) || \
+    ( "$p" == "gemini-2.5-flash" && "$e" == "gemini-2.5-flash" ) \
+  ]]
 }
 
 select_method () {
@@ -76,11 +90,13 @@ select_method () {
       echo "pop"
       ;;
     *)
-      echo "back"
+      echo "front"
       ;;
   esac
 }
 
+local method
+  method="$(select_method "$attack_type")"
 
 run_one_experiment () {
   local suite="$1"
@@ -89,17 +105,16 @@ run_one_experiment () {
   local attack_type="$4"
   local task_type="$5"
   local prompt_template="$6"
-  local api_key="$7"
+  local step="$7"
+  local api_key="$8"
 
   local ts
   ts="$(date +%Y%m%d-%H%M%S)"
-  local results_dir="${attack_type}_${task_type}_${prompt_template}_${planner_model}_${executor_model}_${suite}_${ts}_planner_executor_on_planner_start"
+  local results_dir="prompt/${attack_type}_${task_type}_${method}/${step}/${prompt_template}/${suite}/${planner_model}_${executor_model}__${ts}_planner_executor"
   mkdir -p "$results_dir"
 
-  echo "[$(date '+%Y-%m-%d %H:%M:%S')] Starting: $attack_type $task_type $prompt_template $planner_model->$executor_model"
+  echo "[$(date '+%Y-%m-%d %H:%M:%S')] Starting: $attack_type $task_type $prompt_template $step $planner_model->$executor_model"
 
-  local method
-  method="$(select_method "$attack_type")"
 
   # Set appropriate API key based on model type
   if [[ "$planner_model" == gemini* ]]; then
@@ -110,9 +125,11 @@ run_one_experiment () {
       --executor_model "$executor_model" \
       --attack_type "$attack_type" \
       --task_type "$task_type" \
-      --step "on_planner_start" \
+      --step "$step" \
       --method "$method" \
       --prompt_template "$prompt_template" \
+      --max_user_tasks "$MAX_USER_TASKS" \
+      --max_tasks "$MAX_ATTACK_TASKS" \
       --results_dir "$results_dir" \
       > "${results_dir}/output.log" 2>&1 &
   else
@@ -123,9 +140,11 @@ run_one_experiment () {
       --executor_model "$executor_model" \
       --attack_type "$attack_type" \
       --task_type "$task_type" \
-      --step "on_planner_start" \
+      --step "$step" \
       --method "$method" \
       --prompt_template "$prompt_template" \
+      --max_user_tasks "$MAX_USER_TASKS" \
+      --max_tasks "$MAX_ATTACK_TASKS" \
       --results_dir "$results_dir" \
       > "${results_dir}/output.log" 2>&1 &
   fi
@@ -158,20 +177,28 @@ main () {
   TOTAL_TASKS=0
 
   # Calculate total number of tasks
+  # Validate API keys availability early
+  if (( ${#API_KEYS[@]} == 0 )); then
+    echo "[Error] No API keys provided. Set GEMINI_API_KEYS/OPENAI_API_KEYS or hardcode API_KEYS in this script."
+    exit 1
+  fi
+
   for suite in "${SUITES[@]}"; do
     for attack in "${attack_type[@]}"; do
       for task in "${task_type[@]}"; do
-        # Select appropriate prompt templates based on task type
-        if [[ "$task" == "harmful" ]]; then
-          prompt_templates=("${harmful_prompt_templates[@]}")
-        elif [[ "$task" == "privacy" ]]; then
-          prompt_templates=("${privacy_prompt_templates[@]}")
-        fi
-        
-        for prompt in "${prompt_templates[@]}"; do
-          for p in "${PLANNER_MODELS[@]}"; do
-            for e in "${EXECUTOR_MODELS[@]}"; do
-              is_target_combo "$p" "$e" && ((total_tasks++))
+        for step in "${attack_steps[@]}"; do
+          # Select appropriate prompt templates based on task type
+          if [[ "$task" == "harmful" ]]; then
+            prompt_templates=("${harmful_prompt_templates[@]}")
+          elif [[ "$task" == "privacy" ]]; then
+            prompt_templates=("${privacy_prompt_templates[@]}")
+          fi
+          
+          for prompt in "${prompt_templates[@]}"; do
+            for p in "${PLANNER_MODELS[@]}"; do
+              for e in "${EXECUTOR_MODELS[@]}"; do
+                is_target_combo "$p" "$e" && ((total_tasks++))
+              done
             done
           done
         done
@@ -194,33 +221,35 @@ main () {
   for suite in "${SUITES[@]}"; do
     for attack in "${attack_type[@]}"; do
       for task in "${task_type[@]}"; do
-        # Select appropriate prompt templates based on task type
-        if [[ "$task" == "harmful" ]]; then
-          prompt_templates=("${harmful_prompt_templates[@]}")
-        elif [[ "$task" == "privacy" ]]; then
-          prompt_templates=("${privacy_prompt_templates[@]}")
-        fi
-        
-        for prompt in "${prompt_templates[@]}"; do
-          for p in "${PLANNER_MODELS[@]}"; do
-            for e in "${EXECUTOR_MODELS[@]}"; do
-              is_target_combo "$p" "$e" || continue
-              
-              local api_key
-              api_key="$(pick_key "$task_index")"
-              
-              wait_for_slot
-              
-              echo "[$((task_index + 1))/$total_tasks] Launching: $attack $task $prompt $p->$e (key: $(( task_index % ${#API_KEYS[@]} )))"
-              
-              run_one_experiment "$suite" "$p" "$e" "$attack" "$task" "$prompt" "$api_key"
-              ((task_index++))
-              CURRENT_TASK_INDEX=$task_index
-              
-              # Show progress every 5 tasks
-              if (( task_index % 5 == 0 )); then
-                show_progress
-              fi
+        for step in "${attack_steps[@]}"; do
+          # Select appropriate prompt templates based on task type
+          if [[ "$task" == "harmful" ]]; then
+            prompt_templates=("${harmful_prompt_templates[@]}")
+          elif [[ "$task" == "privacy" ]]; then
+            prompt_templates=("${privacy_prompt_templates[@]}")
+          fi
+          
+          for prompt in "${prompt_templates[@]}"; do
+            for p in "${PLANNER_MODELS[@]}"; do
+              for e in "${EXECUTOR_MODELS[@]}"; do
+                is_target_combo "$p" "$e" || continue
+                
+                local api_key
+                api_key="$(pick_key "$task_index")"
+                
+                wait_for_slot
+                
+                echo "[$((task_index + 1))/$total_tasks] Launching: $attack $task $prompt $step $p->$e (key: $(( task_index % ${#API_KEYS[@]} )))"
+                
+                run_one_experiment "$suite" "$p" "$e" "$attack" "$task" "$prompt" "$step" "$api_key"
+                ((task_index++))
+                CURRENT_TASK_INDEX=$task_index
+                
+                # Show progress every 5 tasks
+                if (( task_index % 5 == 0 )); then
+                  show_progress
+                fi
+              done
             done
           done
         done

@@ -11,7 +11,7 @@ PYTHON_SCRIPT="$SCRIPT_DIR/run_attack_tasks.py"
 CONCURRENCY=12
 
 # Target dimensions (edit as needed)
-declare -a SUITES=("workspace" "slack" "travel")
+declare -a SUITES=("banking")
 declare -a STRUCTURES=("planner_executor")
 declare -a MEMORY_TYPES=("default_memory")
 declare -a ATTACK_TYPES=("privacy")
@@ -24,14 +24,14 @@ declare -a MODEL_COMBINATIONS=(
 )
 
 # Results root
-LOG_ROOT_BASE="${LOG_ROOT_BASE:-$SCRIPT_DIR/results_attacks0}"
+LOG_ROOT_BASE="${LOG_ROOT_BASE:-$SCRIPT_DIR/results_attacks/privacy/gpt}"
 TS=$(date +%Y%m%d_%H%M%S)
 LOG_ROOT="$LOG_ROOT_BASE/$TS"
 mkdir -p "$LOG_ROOT"
 
 # API keys pool (round-robin per job index)
 declare -a API_KEYS=(
-  Your API key here
+  "API_KEY_1"
 )
 
 pick_key () {
