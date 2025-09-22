@@ -1,5 +1,6 @@
 import json
 import inspect
+import warnings
 from agents import (
     Agent,
     Runner, 
@@ -156,116 +157,6 @@ class MultiAgentSystem:
             "function_calls": self.cast_to_function_calls(tool_calls),
             "input_list_dict": input_list_dict
         }
-
-    async def run_sequential(
-        self,
-        input: str | list[TResponseInputItem],
-        env: TaskEnvironment,
-        attack_hooks: list[AttackHook] | None = None,
-        tool_calls_to_extract: list[str] | None = None
-    ) -> dict[str, Any]:
-        
-        """
-        Runs the agents in a sequential manner:
-            - We create a separate memory for each agent to store their results.
-            - It assumes the output of each agent will be used as the input for the next agent.
-            - If the last agent does not produce a final output, the initial input will be used as the final output.
-            - The final output will be the output of the last agent in the sequence after the termination condition is met.
-            - The results of the last agent will be used to determine if the termination condition is met.
-
-        Memory:
-        - If shared_memory are True, we use a shared memory for all agents.
-        - If use_memory is True and shared_memory are False, we use a separate memory for each agent.
-        - Otherwise, we do not use memory.
-        """
-        if not isinstance(self.agents, list):
-            raise ValueError("When using 'sequential' runner, a list of agents must be passed!")
-        
-        usage: dict[str, list[dict[str, int]]] = {
-            agent.name: [] for agent in self.agents
-        }
-        
-        tool_calls: list[dict[str, Any]] = []
-
-        attack_components = AttackComponents(
-            input=input,
-            final_output=None,
-            memory_dict={},
-            agent_dict={agent.name: agent for agent in self.agents},
-            env=env
-        )
-
-        iteration = 0
-
-        if self.shared_memory:
-            memory = SQLiteSession(session_id="sequential_memory")
-        elif self.use_memory:
-            memory = {}
-            for agent in self.agents:
-                memory[agent.name] = SQLiteSession(session_id=f"sequential_memory_{agent.name}")
-        else:
-            memory = None
-
-        for agent in self.agents:
-
-            if attack_hooks is not None:
-                execute_attacks(attack_hooks=attack_hooks, event_name="on_agent_start", iteration=iteration, components=attack_components)
-
-            try:
-                if self.shared_memory:
-                    agent_result = await Runner.run(
-                        starting_agent=agent,
-                        input=attack_components.input,
-                        context=env,
-                        session=memory,
-                    )
-                elif self.use_memory:
-                    agent_result = await Runner.run(
-                        starting_agent=agent,
-                        input=attack_components.input,
-                        context=env,
-                        session=memory[agent.name],
-                    )
-                else:
-                    agent_result = await Runner.run(
-                        starting_agent=agent,
-                        input=attack_components.input,
-                        context=env,
-                    )
-            except Exception as e:
-                return {
-                    "final_output": None,
-                    "usage": usage,
-                    "function_calls": self.cast_to_function_calls(tool_calls),
-                    "error": str(e)
-                }
-
-            attack_components.final_output = agent_result.final_output
-
-            if attack_hooks is not None:
-                execute_attacks(attack_hooks=attack_hooks, event_name="on_agent_end", iteration=iteration, components=attack_components)
-
-            usage[agent.name].append(self.extract_usage(agent_result.raw_responses))
-
-            if agent.name in tool_calls_to_extract or tool_calls_to_extract is None:
-                for response in agent_result.raw_responses:
-                    for item in response.output:
-                        if item.type == "function_call":
-                            tool_calls.append({
-                                "tool_name": item.name,
-                                "tool_arguments": item.arguments
-                            })
-
-            # The final output from the current agent will be used as input for the next agent
-            attack_components.input = agent_result.final_output
-
-            iteration += 1
-
-        return {
-            "final_output": attack_components.final_output,
-            "usage": usage,
-            "function_calls": self.cast_to_function_calls(tool_calls)
-        }
     
     async def run_planner_executor(
         self,
@@ -287,6 +178,7 @@ class MultiAgentSystem:
         - Otherwise, we do not use memory.
         """
 
+        # Usage tracking for both agents, we track the usage of each agent on each iteration
         usage: dict[str, list[dict[str, int]]] = {
             "planner": [
             ],
@@ -294,25 +186,49 @@ class MultiAgentSystem:
             ]
         }
 
+        # Assuming the first agent is the planner and the second is the executor
         planner = self.agents[0]
-
         executor = self.agents[1]
 
+        # Initialize the iteration counter
         iteration = 0
 
-        planner_memory = SQLiteSession(session_id="planner_memory") if self.use_memory else None
+        # Memory setup
+        if self.use_memory:
+            planner_memory = SQLiteSession(session_id="planner_memory")
+        else:
+            planner_memory = None
+            if self.max_iterations > 1:
+                warnings.warn("Max iterations > 1 but use_memory is False. The planner will not have memory between iterations.")
 
-        executor_memory = planner_memory if self.shared_memory else SQLiteSession(session_id="executor_memory") if self.enable_executor_memory else None
+        if self.enable_executor_memory:
+            # Not sure if it is a good idea to have the executor memory the same as the planner memory
+            if self.shared_memory:
+                executor_memory = planner_memory
+                warnings.warn("Executor memory is shared with planner memory. Double check if this is intended.")
+            else:
+                executor_memory = SQLiteSession(session_id="executor_memory")
+        else:
+            executor_memory = None
 
+        # All meaningful tool calls will be executed and only executed by the executor agent
         executor_tool_calls: list[dict[str, Any]] = []
 
+        # A dictionary to store the input list for each agent
         input_list_dict: dict[str, list[dict[str, Any]]] = {
             agent.name: [] for agent in self.agents
         }
 
+        # An object to store the components for attack hooks
         attack_components = AttackComponents(
-            input=input,
-            final_output=None,
+            input={
+                "planner": input,
+                "executor": None
+            },
+            final_output={
+                "planner": None,
+                "executor": None
+            },
             memory_dict={
                 "planner": planner_memory,
                 "executor": executor_memory
@@ -332,11 +248,11 @@ class MultiAgentSystem:
             try:
                 planner_result = await Runner.run(
                     starting_agent=planner,
-                    input=attack_components.input,
+                    input=attack_components.input["planner"],
                     context=env,
                     session=planner_memory,
                 )
-                input_list_dict[planner.name].extend(planner_result.to_input_list())
+                input_list_dict[planner.name] = planner_result.to_input_list()
             except Exception as e:
                 return {
                     "final_output": None,
@@ -346,7 +262,7 @@ class MultiAgentSystem:
                     "input_list_dict": input_list_dict
                 }
 
-            attack_components.final_output = planner_result.final_output
+            attack_components.final_output["planner"] = planner_result.final_output
 
             if attack_hooks is not None:
                 execute_attacks(attack_hooks=attack_hooks, event_name="on_planner_end", iteration=iteration, components=attack_components)
@@ -356,7 +272,7 @@ class MultiAgentSystem:
             if self.termination_condition(iteration=iteration, results=planner_result.to_input_list()):
                 break
 
-            attack_components.input = self.cast_output_to_input(planner_result.final_output)
+            attack_components.input["executor"] = self.cast_output_to_input(planner_result.final_output)
 
             if attack_hooks is not None:
                 execute_attacks(attack_hooks=attack_hooks, event_name="on_executor_start", iteration=iteration, components=attack_components)
@@ -364,11 +280,11 @@ class MultiAgentSystem:
             try:
                 executor_result = await Runner.run(
                     executor,
-                    input=attack_components.input,
+                    input=attack_components.input["executor"],
                     context=env,
                     session=executor_memory,
                 )
-                input_list_dict[executor.name].extend(executor_result.to_input_list())
+                input_list_dict[executor.name] = executor_result.to_input_list()
             except Exception as e:
                 return {
                     "final_output": None,
@@ -378,7 +294,7 @@ class MultiAgentSystem:
                     "input_list_dict": input_list_dict
                 }
 
-            attack_components.final_output = executor_result.final_output
+            attack_components.final_output["executor"] = executor_result.final_output
 
             if attack_hooks is not None:
                 execute_attacks(attack_hooks=attack_hooks, event_name="on_executor_end", iteration=iteration, components=attack_components)
@@ -393,12 +309,12 @@ class MultiAgentSystem:
                                 "tool_arguments": item.arguments
                             })
 
-            attack_components.input = self.cast_output_to_input(executor_result.final_output)
+            attack_components.input["planner"] = self.cast_output_to_input(executor_result.final_output)
 
             iteration += 1
 
         return {
-            "final_output": executor_result.final_output,
+            "final_output": attack_components.final_output["planner"],
             "usage": usage,
             "function_calls": self.cast_to_function_calls(executor_tool_calls),
             "input_list_dict": input_list_dict

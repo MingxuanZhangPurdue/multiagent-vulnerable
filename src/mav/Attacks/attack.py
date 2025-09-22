@@ -9,7 +9,7 @@ from agents import Session
 class AttackComponents:
     
     # The input of the agent right before their turn, typically should be attacked at the "on the agent run start" event
-    input: str
+    input: str | dict[str, str]
 
     # The final output of the agent right after their turn, typically should be attacked at the "on the agent run end" event
     final_output: Any
