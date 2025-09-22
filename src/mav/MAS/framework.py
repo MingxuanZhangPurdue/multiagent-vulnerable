@@ -216,7 +216,8 @@ class MultiAgentSystem:
 
         # A dictionary to store the input list for each agent
         input_list_dict: dict[str, list[dict[str, Any]]] = {
-            agent.name: [] for agent in self.agents
+            "planner": [],
+            "executor": []
         }
 
         # An object to store the components for attack hooks
@@ -252,7 +253,7 @@ class MultiAgentSystem:
                     context=env,
                     session=planner_memory,
                 )
-                input_list_dict[planner.name] = planner_result.to_input_list()
+                input_list_dict["planner"] = planner_result.to_input_list()
             except Exception as e:
                 return {
                     "final_output": None,
@@ -284,7 +285,7 @@ class MultiAgentSystem:
                     context=env,
                     session=executor_memory,
                 )
-                input_list_dict[executor.name] = executor_result.to_input_list()
+                input_list_dict["executor"] = executor_result.to_input_list()
             except Exception as e:
                 return {
                     "final_output": None,
