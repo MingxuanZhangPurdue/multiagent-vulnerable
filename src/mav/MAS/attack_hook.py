@@ -39,41 +39,32 @@ class AttackHook:
         self.attack_counter += 1
 
 def execute_attacks(attack_hooks: list[AttackHook], event_name: str, iteration: int, components: AttackComponents):
-    # print(f"Executing attacks for event: {event_name}")
-    # print(f"Total attack hooks available: {len(attack_hooks)}")
-    # print(f"Attack hook steps: {[hook.step for hook in attack_hooks]}")
-    
     attack_hooks_to_run = [attack for attack in attack_hooks if attack.step == event_name]
-    # print(f"🐛 Attack hooks to run: {attack_hooks_to_run}")
-    
-    # Store environments for each attack hook
-    attack_environments = {}
     
     for attack_hook in attack_hooks_to_run:
         
         # Always capture pre-attack environment (before attack executes)
-        pre_env = copy.deepcopy(components.env)
         
         # Execute the attack
         attack_hook(iteration, components)
         
         # Always capture post-attack environment (after attack executes)
-        post_env = copy.deepcopy(components.env)
+        pre_env = copy.deepcopy(components.env)
         
         # Store environments for this attack hook
-        attack_environments[attack_hook] = {
-            'pre_environment': pre_env,
-            'post_environment': post_env
-        }
+        # attack_environments[attack_hook] = {
+        #     'pre_environment': pre_env,
+        #     'post_environment': post_env
+        # }
         
         # Store environments on the attack hook object for later access
         # For multi-turn attacks, we need to track first and last execution
         if not hasattr(attack_hook, 'captured_pre_environment') or attack_hook.captured_pre_environment is None:
             attack_hook.captured_pre_environment = pre_env
 
-        
+
         # Always update post environment to the latest state
-        attack_hook.captured_post_environment = post_env
+        attack_hook.captured_post_environment = components.env
         
         # Track execution count for debugging
         if not hasattr(attack_hook, 'execution_count'):
@@ -82,25 +73,25 @@ def execute_attacks(attack_hooks: list[AttackHook], event_name: str, iteration: 
         
 
         
-        # If we have both environments, we can evaluate security
-        if pre_env is not None and post_env is not None:
-            # Extract model_output from components
-            model_output = components.final_output
+        # # If we have both environments, we can evaluate security
+        # if pre_env is not None and components.env is not None:
+        #     # Extract model_output from components
+        #     model_output = components.final_output
             
-            # Call security evaluation with the new signature
-            try:
-                if hasattr(attack_hook.attack, 'security') and attack_hook.attack.eval_function is not None:
-                    # Create args dict similar to what benchmark_suite provides
-                    args = {
-                        'final_output': model_output,
-                        'env': post_env,  # Include post environment in args
-                        'iteration': iteration,
-                        'event_name': event_name
-                    }
+        #     # Call security evaluation with the new signature
+        #     try:
+        #         if hasattr(attack_hook.attack, 'security') and attack_hook.attack.eval_function is not None:
+        #             # Create args dict similar to what benchmark_suite provides
+        #             args = {
+        #                 'final_output': model_output,
+        #                 'env': components.env,  # Include post environment in args
+        #                 'iteration': iteration,
+        #                 'event_name': event_name
+        #             }
                     
-                    # Call security with the new 4-parameter signature
-                    security_result = attack_hook.attack.security(model_output, pre_env, post_env, args)
+        #             # Call security with the new 4-parameter signature
+        #             security_result = attack_hook.attack.security(model_output, pre_env, post_env, args)
                     
-            except Exception as e:
-                print(f"❌ Error during security evaluation: {e}")
+        #     except Exception as e:
+        #         print(f"❌ Error during security evaluation: {e}")
 

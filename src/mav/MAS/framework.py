@@ -124,6 +124,7 @@ class MultiAgentSystem:
                 input=attack_components.input,
                 context=env,
                 session=memory,
+                max_turns=20  # Increased from default 10 to 20
             )
         except Exception as e:
             return {
@@ -156,6 +157,119 @@ class MultiAgentSystem:
             "usage": usage,
             "function_calls": self.cast_to_function_calls(tool_calls),
             "input_list_dict": input_list_dict
+        }
+
+    async def run_sequential(
+        self,
+        input: str | list[TResponseInputItem],
+        env: TaskEnvironment,
+        attack_hooks: list[AttackHook] | None = None,
+        tool_calls_to_extract: list[str] | None = None
+    ) -> dict[str, Any]:
+        
+        """
+        Runs the agents in a sequential manner:
+            - We create a separate memory for each agent to store their results.
+            - It assumes the output of each agent will be used as the input for the next agent.
+            - If the last agent does not produce a final output, the initial input will be used as the final output.
+            - The final output will be the output of the last agent in the sequence after the termination condition is met.
+            - The results of the last agent will be used to determine if the termination condition is met.
+
+        Memory:
+        - If shared_memory are True, we use a shared memory for all agents.
+        - If use_memory is True and shared_memory are False, we use a separate memory for each agent.
+        - Otherwise, we do not use memory.
+        """
+        if not isinstance(self.agents, list):
+            raise ValueError("When using 'sequential' runner, a list of agents must be passed!")
+        
+        usage: dict[str, list[dict[str, int]]] = {
+            agent.name: [] for agent in self.agents
+        }
+        
+        tool_calls: list[dict[str, Any]] = []
+
+        attack_components = AttackComponents(
+            input=input,
+            final_output=None,
+            memory_dict={},
+            agent_dict={agent.name: agent for agent in self.agents},
+            env=env
+        )
+
+        iteration = 0
+
+        if self.shared_memory:
+            memory = SQLiteSession(session_id="sequential_memory")
+        elif self.use_memory:
+            memory = {}
+            for agent in self.agents:
+                memory[agent.name] = SQLiteSession(session_id=f"sequential_memory_{agent.name}")
+        else:
+            memory = None
+
+        for agent in self.agents:
+
+            if attack_hooks is not None:
+                execute_attacks(attack_hooks=attack_hooks, event_name="on_agent_start", iteration=iteration, components=attack_components)
+
+            try:
+                if self.shared_memory:
+                    agent_result = await Runner.run(
+                        starting_agent=agent,
+                        input=attack_components.input,
+                        context=env,
+                        session=memory,
+                        max_turns=20  # Increased from default 10 to 20
+                    )
+                elif self.use_memory:
+                    agent_result = await Runner.run(
+                        starting_agent=agent,
+                        input=attack_components.input,
+                        context=env,
+                        session=memory[agent.name],
+                        max_turns=20  # Increased from default 10 to 20
+                    )
+                else:
+                    agent_result = await Runner.run(
+                        starting_agent=agent,
+                        input=attack_components.input,
+                        context=env,
+                        max_turns=20  # Increased from default 10 to 20
+                    )
+            except Exception as e:
+                return {
+                    "final_output": None,
+                    "usage": usage,
+                    "function_calls": self.cast_to_function_calls(tool_calls),
+                    "error": str(e)
+                }
+
+            attack_components.final_output = agent_result.final_output
+
+            if attack_hooks is not None:
+                execute_attacks(attack_hooks=attack_hooks, event_name="on_agent_end", iteration=iteration, components=attack_components)
+
+            usage[agent.name].append(self.extract_usage(agent_result.raw_responses))
+
+            if agent.name in tool_calls_to_extract or tool_calls_to_extract is None:
+                for response in agent_result.raw_responses:
+                    for item in response.output:
+                        if item.type == "function_call":
+                            tool_calls.append({
+                                "tool_name": item.name,
+                                "tool_arguments": item.arguments
+                            })
+
+            # The final output from the current agent will be used as input for the next agent
+            attack_components.input = agent_result.final_output
+
+            iteration += 1
+
+        return {
+            "final_output": attack_components.final_output,
+            "usage": usage,
+            "function_calls": self.cast_to_function_calls(tool_calls)
         }
     
     async def run_planner_executor(
@@ -252,6 +366,7 @@ class MultiAgentSystem:
                     input=attack_components.input["planner"],
                     context=env,
                     session=planner_memory,
+                    max_turns=20  # Increased from default 10 to 20
                 )
                 input_list_dict["planner"] = planner_result.to_input_list()
             except Exception as e:
@@ -264,9 +379,6 @@ class MultiAgentSystem:
                 }
 
             attack_components.final_output["planner"] = planner_result.final_output
-
-            if attack_hooks is not None:
-                execute_attacks(attack_hooks=attack_hooks, event_name="on_planner_end", iteration=iteration, components=attack_components)
 
             usage["planner"].append(self.extract_usage(planner_result.raw_responses))
 
@@ -284,6 +396,7 @@ class MultiAgentSystem:
                     input=attack_components.input["executor"],
                     context=env,
                     session=executor_memory,
+                    max_turns=20  # Increased from default 10 to 20
                 )
                 input_list_dict["executor"] = executor_result.to_input_list()
             except Exception as e:
@@ -297,9 +410,6 @@ class MultiAgentSystem:
 
             attack_components.final_output["executor"] = executor_result.final_output
 
-            if attack_hooks is not None:
-                execute_attacks(attack_hooks=attack_hooks, event_name="on_executor_end", iteration=iteration, components=attack_components)
-
             usage["executor"].append(self.extract_usage(executor_result.raw_responses))
 
             for response in executor_result.raw_responses:
@@ -311,6 +421,12 @@ class MultiAgentSystem:
                             })
 
             attack_components.input["planner"] = self.cast_output_to_input(executor_result.final_output)
+
+            if attack_hooks is not None:
+                execute_attacks(attack_hooks=attack_hooks, event_name="on_executor_end", iteration=iteration, components=attack_components)
+
+            if attack_hooks is not None:
+                execute_attacks(attack_hooks=attack_hooks, event_name="on_executor_end", iteration=iteration, components=attack_components)
 
             iteration += 1
 
