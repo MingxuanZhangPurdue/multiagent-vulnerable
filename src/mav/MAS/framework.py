@@ -425,9 +425,6 @@ class MultiAgentSystem:
             if attack_hooks is not None:
                 execute_attacks(attack_hooks=attack_hooks, event_name="on_executor_end", iteration=iteration, components=attack_components)
 
-            if attack_hooks is not None:
-                execute_attacks(attack_hooks=attack_hooks, event_name="on_executor_end", iteration=iteration, components=attack_components)
-
             iteration += 1
 
         return {
