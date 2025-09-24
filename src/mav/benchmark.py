@@ -24,7 +24,7 @@ async def benchmark_suite(
 
     if type == "user_task":
         for user_task in tqdm(user_tasks_to_run, desc="Running User Tasks"):
-            utility, function_calls_match, security, result = await suite.run_task_with_pipeline(
+            utility, function_calls_match, security, result, pre_environment, task_environment = await suite.run_task_with_pipeline(
                 multi_agent_system=multi_agent_system,
                 user_task=user_task,
                 attack_hooks=attack_hooks
@@ -33,13 +33,15 @@ async def benchmark_suite(
                 "utility": utility,
                 "function_calls_match": function_calls_match,
                 "result": result,
-                "security": security
+                "security": security,
+                "pre_environment": pre_environment,
+                "post_environment": task_environment
             }
 
             suite_results[user_task.ID] = item
     else:
          for user_task in tqdm(user_tasks_to_run, desc="Running User Tasks"):
-            utility, function_calls_match, result = await suite.run_attack_task_with_pipeline(
+            utility, function_calls_match, result, pre_environment, task_environment = await suite.run_attack_task_with_pipeline(
                 multi_agent_system=multi_agent_system,
                 user_task=user_task,
                 timeout = timeout
@@ -47,7 +49,9 @@ async def benchmark_suite(
             suite_results[user_task.ID] = {
                 "utility": utility,
                 "function_calls_match": function_calls_match,
-                "result": result
+                "result": result,
+                "pre_environment": pre_environment,
+                "post_environment": task_environment
             }
 
     return suite_results

@@ -1,5 +1,6 @@
 import json
 import inspect
+import warnings
 from agents import (
     Agent,
     Runner, 
@@ -291,6 +292,7 @@ class MultiAgentSystem:
         - Otherwise, we do not use memory.
         """
 
+        # Usage tracking for both agents, we track the usage of each agent on each iteration
         usage: dict[str, list[dict[str, int]]] = {
             "planner": [
             ],
@@ -298,25 +300,50 @@ class MultiAgentSystem:
             ]
         }
 
+        # Assuming the first agent is the planner and the second is the executor
         planner = self.agents[0]
-
         executor = self.agents[1]
 
+        # Initialize the iteration counter
         iteration = 0
 
-        planner_memory = SQLiteSession(session_id="planner_memory") if self.use_memory else None
+        # Memory setup
+        if self.use_memory:
+            planner_memory = SQLiteSession(session_id="planner_memory")
+        else:
+            planner_memory = None
+            if self.max_iterations > 1:
+                warnings.warn("Max iterations > 1 but use_memory is False. The planner will not have memory between iterations.")
 
-        executor_memory = planner_memory if self.shared_memory else SQLiteSession(session_id="executor_memory") if self.enable_executor_memory else None
+        if self.enable_executor_memory:
+            # Not sure if it is a good idea to have the executor memory the same as the planner memory
+            if self.shared_memory:
+                executor_memory = planner_memory
+                warnings.warn("Executor memory is shared with planner memory. Double check if this is intended.")
+            else:
+                executor_memory = SQLiteSession(session_id="executor_memory")
+        else:
+            executor_memory = None
 
+        # All meaningful tool calls will be executed and only executed by the executor agent
         executor_tool_calls: list[dict[str, Any]] = []
 
+        # A dictionary to store the input list for each agent
         input_list_dict: dict[str, list[dict[str, Any]]] = {
-            agent.name: [] for agent in self.agents
+            "planner": [],
+            "executor": []
         }
 
+        # An object to store the components for attack hooks
         attack_components = AttackComponents(
-            input=input,
-            final_output=None,
+            input={
+                "planner": input,
+                "executor": None
+            },
+            final_output={
+                "planner": None,
+                "executor": None
+            },
             memory_dict={
                 "planner": planner_memory,
                 "executor": executor_memory
@@ -336,12 +363,12 @@ class MultiAgentSystem:
             try:
                 planner_result = await Runner.run(
                     starting_agent=planner,
-                    input=attack_components.input,
+                    input=attack_components.input["planner"],
                     context=env,
                     session=planner_memory,
                     max_turns=20  # Increased from default 10 to 20
                 )
-                input_list_dict[planner.name].extend(planner_result.to_input_list())
+                input_list_dict["planner"] = planner_result.to_input_list()
             except Exception as e:
                 return {
                     "final_output": None,
@@ -351,14 +378,14 @@ class MultiAgentSystem:
                     "input_list_dict": input_list_dict
                 }
 
-            attack_components.final_output = planner_result.final_output
+            attack_components.final_output["planner"] = planner_result.final_output
 
             usage["planner"].append(self.extract_usage(planner_result.raw_responses))
 
             if self.termination_condition(iteration=iteration, results=planner_result.to_input_list()):
                 break
 
-            attack_components.input = self.cast_output_to_input(planner_result.final_output)
+            attack_components.input["executor"] = self.cast_output_to_input(planner_result.final_output)
 
             if attack_hooks is not None:
                 execute_attacks(attack_hooks=attack_hooks, event_name="on_executor_start", iteration=iteration, components=attack_components)
@@ -366,12 +393,12 @@ class MultiAgentSystem:
             try:
                 executor_result = await Runner.run(
                     executor,
-                    input=attack_components.input,
+                    input=attack_components.input["executor"],
                     context=env,
                     session=executor_memory,
                     max_turns=20  # Increased from default 10 to 20
                 )
-                input_list_dict[executor.name].extend(executor_result.to_input_list())
+                input_list_dict["executor"] = executor_result.to_input_list()
             except Exception as e:
                 return {
                     "final_output": None,
@@ -381,7 +408,7 @@ class MultiAgentSystem:
                     "input_list_dict": input_list_dict
                 }
 
-            attack_components.final_output = executor_result.final_output
+            attack_components.final_output["executor"] = executor_result.final_output
 
             usage["executor"].append(self.extract_usage(executor_result.raw_responses))
 
@@ -393,7 +420,10 @@ class MultiAgentSystem:
                                 "tool_arguments": item.arguments
                             })
 
-            attack_components.input = self.cast_output_to_input(executor_result.final_output)
+            attack_components.input["planner"] = self.cast_output_to_input(executor_result.final_output)
+
+            if attack_hooks is not None:
+                execute_attacks(attack_hooks=attack_hooks, event_name="on_executor_end", iteration=iteration, components=attack_components)
 
             if attack_hooks is not None:
                 execute_attacks(attack_hooks=attack_hooks, event_name="on_executor_end", iteration=iteration, components=attack_components)
@@ -401,7 +431,7 @@ class MultiAgentSystem:
             iteration += 1
 
         return {
-            "final_output": executor_result.final_output,
+            "final_output": attack_components.final_output["planner"],
             "usage": usage,
             "function_calls": self.cast_to_function_calls(executor_tool_calls),
             "input_list_dict": input_list_dict

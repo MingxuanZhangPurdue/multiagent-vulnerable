@@ -75,21 +75,19 @@ class MessageTermination(BaseTermination):
         if results is None or not results:
             return False
         
-        final_item = results[-1]
-        
-        if final_item.get("role") != "assistant":
-            return False
-            
-        content = final_item.get("content")
-        if isinstance(content, str):
-            return self.termination_message in content
-        elif isinstance(content, list):
-            return any(
-                item.get("type") == "output_text" 
-                and self.termination_message in item.get("text", "")
-                for item in content
-            )
-        
+        for item in results:
+            if item.get("role") == "assistant":
+                content = item.get("content")
+                if isinstance(content, str):
+                    if self.termination_message.lower() in content.lower():
+                        return True
+                elif isinstance(content, list):
+                    return any(
+                        item.get("type") == "output_text" 
+                        and self.termination_message.lower() in item.get("text", "").lower()
+                        for item in content
+                    )
+                    
         return False
     
 # class WebAgentTermination(BaseTermination):

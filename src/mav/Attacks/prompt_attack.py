@@ -21,6 +21,7 @@ class PromptAttack(BaseAttack):
         config: {
             "method": Literal["front", "back"], # default is "back"
             "injection": str, # default is ""
+            "target_agent": str | None, # default is None (all agents)
         }
         """
         
@@ -81,11 +82,22 @@ class PromptAttack(BaseAttack):
 
         method = self.attack_config.get("method", "back")
         injection = self.attack_config.get("injection", "")
+        target_agent = self.attack_config.get("target_agent", None)
 
         if method == "back":
-            components.input = f"{components.input}\n{injection}"
+            if target_agent is not None:
+                if components.agent_dict.get(target_agent) is None:
+                    raise ValueError(f"Target agent {target_agent} not found in agent_dict")
+                components.agent_dict[target_agent].prompt = f"{components.agent_dict[target_agent].prompt}\n{injection}"
+            else:
+                components.input = f"{components.input}\n{injection}"
         elif method == "front":
-            components.input = f"{injection}\n{components.input}"
+            if target_agent is not None:
+                if components.agent_dict.get(target_agent) is None:
+                    raise ValueError(f"Target agent {target_agent} not found in agent_dict")
+                components.agent_dict[target_agent].prompt = f"{components.agent_dict[target_agent].prompt}\n{injection}"
+            else:
+                components.input = f"{components.input}\n{injection}"
         else:
             raise ValueError(f"Invalid method specified: {method}, should be 'front' or 'back'")
 
