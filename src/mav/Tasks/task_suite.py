@@ -228,7 +228,7 @@ class TaskSuite(Generic[Env]):
                 )
         else:
             security = None
-        return utility, function_calls_match, security, result, pre_environment, task_environment
+        return utility, function_calls_match, security, result
 
     def _check_security(
         self,
