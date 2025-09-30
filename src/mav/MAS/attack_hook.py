@@ -26,17 +26,19 @@ class AttackHook:
     def __call__(self, iteration: int, components: AttackComponents):
         if self.attack_condition is None:
             self.attack.attack(components)
+            self.attack_counter += 1
         elif self.attack_condition == "max_attacks":
             if self.attack_counter < self.max_attacks:
                 self.attack.attack(components)
+                self.attack_counter += 1
         elif self.attack_condition == "once" and iteration == self.iteration_to_attack and not self.attacked:
             self.attack.attack(components)
             self.attacked = True
+            self.attack_counter += 1
         elif self.attack_condition == "max_iterations":
             if iteration < self.max_iterations:
                 self.attack.attack(components)
-
-        self.attack_counter += 1
+                self.attack_counter += 1
 
 def execute_attacks(attack_hooks: list[AttackHook], event_name: str, iteration: int, components: AttackComponents):
     attack_hooks_to_run = [attack for attack in attack_hooks if attack.step == event_name]
