@@ -430,7 +430,7 @@ def create_attack_hooks_from_suite(suite, task_type, mas_type = "handoffs", step
             template = prompt_template
         
         # Format the template with the actual task prompt
-        formatted_prompt = template.format(task_prompt=task_class.PROMPT)
+        formatted_prompt = template.format(task_prompt=task_instance.PROMPT)
         
         # Create attack based on attack_type
         if attack_type == "memory":
@@ -440,7 +440,8 @@ def create_attack_hooks_from_suite(suite, task_type, mas_type = "handoffs", step
                     "method": "pop",  # Default to pop, can be customized
                     "agents": ["planner_agent", "banking_agent"]  # Default agents, can be customized
                 },
-                eval_function=create_security_eval_function(task_instance, task_id)
+                eval_function=create_security_eval_function(task_instance, task_id),
+                init_env_function=init_env_func
             )
         elif attack_type == "instruction":
             from mav.Attacks import InstructionAttack
@@ -467,7 +468,8 @@ def create_attack_hooks_from_suite(suite, task_type, mas_type = "handoffs", step
                         target_agent: formatted_prompt  # Target the agent determined from step
                     }
                 },
-                eval_function=create_security_eval_function(task_instance, task_id)
+                eval_function=create_security_eval_function(task_instance, task_id),
+                init_env_function=init_env_func
             )
         elif attack_type == "prompt":  # Default to prompt attack
             from mav.Attacks import PromptAttack
