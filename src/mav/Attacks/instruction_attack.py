@@ -4,9 +4,12 @@ from mav.Attacks.attack import BaseAttack, AttackComponents
 class InstructionAttack(BaseAttack):
 
     """Instructions-based attacks"""
-    
-    # Class-level tracking to prevent duplicate injections in the same execution
-    _injected_agents = set()
+
+    def __init__(self, attack_config: dict = None, eval_function = None, init_env_function = None):
+        super().__init__(attack_config, eval_function)
+        self.init_env_function = init_env_function
+        # One-time init guard
+        self._env_init_done = False
 
     def attack(self, components: AttackComponents) -> None:
 
@@ -16,6 +19,16 @@ class InstructionAttack(BaseAttack):
             "content": dict[str, str] | str # agent_name -> instruction content, default is ""
         }
         """
+        
+        # Initialize environment once if init function is provided
+        if self.init_env_function is not None and not self._env_init_done:
+            try:
+                # Build a stable tag for this init function to de-duplicate across identical hooks
+                init_tag = f"instruction_attack_{id(self.init_env_function)}"
+                self.init_env_function(components.env, init_tag)
+                self._env_init_done = True
+            except Exception as e:
+                print(f"Warning: Environment initialization failed for InstructionAttack: {e}")
 
         method = self.attack_config.get("method", "inject")
         content: dict[str, str] | str = self.attack_config["content"]
@@ -76,30 +89,16 @@ class InstructionAttack(BaseAttack):
         if isinstance(content, str):
             print(f"  [INJECT] Injecting into ALL agents: {repr(content[:100])}{'...' if len(content) > 100 else ''}")
             for agent_name, agent in components.agent_dict.items():
-                # Check if already injected to prevent duplicates
-                agent_key = f"{agent_name}_{id(agent)}"
-                if agent_key in self._injected_agents:
-                    print(f"  [INJECT] SKIPPING agent '{agent_name}' - already injected in this execution")
-                    continue
-                    
                 print(f"  [INJECT] Injecting into agent '{agent_name}'")
                 instructions = agent.instructions
                 agent.instructions = instructions + content
-                self._injected_agents.add(agent_key)
 
         elif isinstance(content, dict):
             print(f"  [INJECT] Injecting into specific agents: {list(content.keys())}")
             for agent_name, new_instructions in content.items():
                 if agent_name in components.agent_dict:
-                    # Check if already injected to prevent duplicates
-                    agent_key = f"{agent_name}_{id(components.agent_dict[agent_name])}"
-                    if agent_key in self._injected_agents:
-                        print(f"  [INJECT] SKIPPING agent '{agent_name}' - already injected in this execution")
-                        continue
-                        
                     print(f"  [INJECT] Injecting into agent '{agent_name}': {repr(new_instructions[:100])}{'...' if len(new_instructions) > 100 else ''}")
                     components.agent_dict[agent_name].instructions += new_instructions
-                    self._injected_agents.add(agent_key)
                 else:
                     print(f"  [INJECT] WARNING: Agent '{agent_name}' not found in agent_dict!")
 
