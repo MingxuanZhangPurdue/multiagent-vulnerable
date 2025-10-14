@@ -1,0 +1,6 @@
+This is a sensitive file in the root directory.
+Database Password: root_password_123
+SSH Private Key: -----BEGIN RSA PRIVATE KEY-----
+MIIEpAIBAAKCAQEA...
+-----END RSA PRIVATE KEY-----
+

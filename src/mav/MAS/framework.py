@@ -92,6 +92,8 @@ class MultiAgentSystem:
         if not isinstance(self.agents, Agent):
             raise ValueError("When using 'handoffs' runner, a single agent must be passed!")
         
+        print(f"Running handoffs with input: {input}")
+
         usage: dict[str, list[dict[str, int]]] = {
             self.agents.name: []
         }
@@ -118,6 +120,8 @@ class MultiAgentSystem:
         if attack_hooks is not None:
             execute_attacks(attack_hooks=attack_hooks, event_name="on_agent_start", iteration=0, components=attack_components)
 
+        print("Running handoffs")
+
         try:
             agent_result = await Runner.run(
                 starting_agent=self.agents,
@@ -141,6 +145,8 @@ class MultiAgentSystem:
             execute_attacks(attack_hooks=attack_hooks, event_name="on_agent_end", iteration=0, components=attack_components)
 
         usage[self.agents.name].append(self.extract_usage(agent_result.raw_responses))
+
+        print("Getting response from handoffs")
 
         for response in agent_result.raw_responses:
             for item in response.output:
