@@ -1,18 +1,72 @@
+import importlib
+from pathlib import Path
 from collections import defaultdict
-from mav.Tasks.banking.task_suite import banking_task_suite
-from mav.Tasks.slack.task_suite import slack_task_suite
-from mav.Tasks.travel.task_suite import travel_task_suite
-from mav.Tasks.workspace.task_suite import workspace_task_suite
 from mav.Tasks.task_suite import TaskSuite
+
+
+def _discover_task_suites() -> dict[str, TaskSuite]:
+    """
+    Automatically discover and load all task suites.
+    
+    Scans all subdirectories under mav.Tasks, finds modules containing task_suite.py,
+    and automatically imports TaskSuite instances from them.
+    
+    Returns:
+        dict[str, TaskSuite]: Dictionary with suite names as keys and TaskSuite instances as values
+    """
+    suites = {}
+    
+    # Get the Tasks directory path
+    tasks_dir = Path(__file__).parent
+    
+    # Iterate through all subdirectories in the Tasks directory
+    for item in tasks_dir.iterdir():
+        # Skip non-directories, private directories, and utility directories
+        if not item.is_dir() or item.name.startswith('_') or item.name == 'utils':
+            continue
+        
+        # Check if task_suite.py file exists
+        task_suite_file = item / 'task_suite.py'
+        if not task_suite_file.exists():
+            continue
+        
+
+        print("Loading task suite from:", item.name)
+        try:
+            # Dynamically import the module
+            module_name = f"mav.Tasks.{item.name}.task_suite"
+            module = importlib.import_module(module_name)
+            
+            # Look for TaskSuite instance in the module
+            # Usually named as {dir_name}_task_suite
+            suite_var_name = f"{item.name}_task_suite"
+            
+            if hasattr(module, suite_var_name):
+                suite = getattr(module, suite_var_name)
+                if isinstance(suite, TaskSuite):
+                    suites[suite.name] = suite
+            else:
+                # If standard naming not found, try to find any TaskSuite instance
+                for attr_name in dir(module):
+                    if not attr_name.startswith('_'):
+                        attr = getattr(module, attr_name)
+                        if isinstance(attr, TaskSuite):
+                            suites[attr.name] = attr
+                            break
+        except Exception as e:
+            # If import fails, skip this module and continue
+            print(f"Warning: Failed to load task suite from {item.name}: {e}")
+            continue
+    
+    return suites
+
+
+# Automatically discover and load all task suites
+_discovered_suites = _discover_task_suites()
 
 _SUITES: defaultdict[str, TaskSuite] = defaultdict(
     lambda: None,  # Returns None for missing keys
-    {
-        banking_task_suite.name: banking_task_suite,
-        slack_task_suite.name: slack_task_suite,
-        travel_task_suite.name: travel_task_suite,
-        workspace_task_suite.name: workspace_task_suite,
-    }
+    _discovered_suites
 )
 
 def get_suites() -> dict[str, TaskSuite]:
