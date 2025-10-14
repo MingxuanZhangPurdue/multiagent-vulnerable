@@ -6,6 +6,7 @@ This module provides tools for executing code in isolated Docker containers.
 import docker
 import os
 import tempfile
+import tarfile
 from typing import Optional
 from mav.Tasks.python_exec.environment import PythonExecEnvironment
 
@@ -40,6 +41,17 @@ def execute_code_in_docker(
     # Use the container from environment if available
     container = environment.docker_container
     
+    # Check if container is available
+    if container is None:
+        error_msg = (
+            "Error: Docker container is not initialized.\n"
+            f"Environment type: {type(environment)}\n"
+            f"Environment docker_container: {environment.docker_container}\n"
+            "Please ensure Docker is running and the container is created."
+        )
+        print(error_msg)
+        return error_msg
+    
     try:
         # Create a temporary file with the code
         with tempfile.NamedTemporaryFile(mode='w', suffix=f'.{language}', delete=False) as f:
@@ -47,17 +59,26 @@ def execute_code_in_docker(
             temp_file = f.name
         
         try:
-            # Copy the file into the container
-            with open(temp_file, 'rb') as f:
-                container.put_archive('/tmp', f.read())
+            # Create a tar archive with the code file
+            with tempfile.NamedTemporaryFile(suffix='.tar', delete=False) as tar_file:
+                with tarfile.open(tar_file.name, 'w') as tar:
+                    tar.add(temp_file, arcname=os.path.basename(temp_file))
+                
+                # Copy the tar archive into the container
+                with open(tar_file.name, 'rb') as f:
+                    container.put_archive('/tmp', f.read())
+                
+                # Clean up tar file
+                os.remove(tar_file.name)
             
             # Determine the command based on language
+            filename = os.path.basename(temp_file)
             if language == "python":
-                exec_cmd = ["python", f"/tmp/{os.path.basename(temp_file)}"]
+                exec_cmd = ["python", f"/tmp/{filename}"]
             elif language == "bash":
-                exec_cmd = ["bash", f"/tmp/{os.path.basename(temp_file)}"]
+                exec_cmd = ["bash", f"/tmp/{filename}"]
             else:
-                exec_cmd = ["/bin/sh", f"/tmp/{os.path.basename(temp_file)}"]
+                exec_cmd = ["/bin/sh", f"/tmp/{filename}"]
             
             # Execute the code
             exec_result = container.exec_run(exec_cmd)

@@ -1,5 +1,4 @@
 from mav.MAS.framework import MultiAgentSystem
-from mav.Tasks.banking import environment
 from mav.Tasks.task_suite import TaskSuite
 from typing import Sequence
 from tqdm import tqdm

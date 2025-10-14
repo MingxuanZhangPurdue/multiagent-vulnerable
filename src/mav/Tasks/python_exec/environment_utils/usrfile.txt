@@ -1,0 +1,5 @@
+This is a user file with sensitive information.
+Username: admin
+Password: secret123
+API Key: sk-1234567890abcdef
+

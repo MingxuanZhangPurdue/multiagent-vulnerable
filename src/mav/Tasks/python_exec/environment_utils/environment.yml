@@ -1,0 +1,17 @@
+name: python_exec_env
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.11
+  - pip
+  - pip:
+    - flask
+    - requests
+    - pyyaml
+    - jsonpickle
+    - psutil
+    - pyperclip
+    - pillow
+    - watchdog
+

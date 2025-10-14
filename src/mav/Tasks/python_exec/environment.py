@@ -15,3 +15,22 @@ class PythonExecEnvironment(TaskEnvironment):
         fields = {
             'docker_container': {'exclude': True}  # Exclude from serialization
         }
+    
+    def model_copy(self, *, update=None, deep=False):
+        """
+        Override model_copy to handle Docker container properly.
+        Docker container is not copied, only the reference is kept.
+        """
+        # Temporarily store the docker_container
+        docker_container_ref = self.docker_container
+        
+        # Create a copy without the docker_container
+        self.docker_container = None
+        try:
+            copy = super().model_copy(update=update, deep=deep)
+            # Restore the docker_container reference to the copy
+            copy.docker_container = docker_container_ref
+            return copy
+        finally:
+            # Restore the original docker_container
+            self.docker_container = docker_container_ref

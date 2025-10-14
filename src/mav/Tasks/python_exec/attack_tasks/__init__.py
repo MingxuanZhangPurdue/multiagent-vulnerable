@@ -127,7 +127,7 @@ for i, TaskClass in enumerate(task_classes):
     
     def make_init_with_docker(original_init_func):
         def init_with_docker(self, environment):
-            env = original_init_func(self, environment)
+            env = original_init_func(environment)
             # Set the Docker container from task suite
             env.docker_container = task_suite._docker_container
             return env
