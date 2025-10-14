@@ -122,6 +122,19 @@ for i, TaskClass in enumerate(task_classes):
     setattr(TaskClass, "ID", task_id)
     setattr(TaskClass, "type", "python_exec")
     
+    # Override init_environment to set Docker container
+    original_init = TaskClass.init_environment
+    
+    def make_init_with_docker(original_init_func):
+        def init_with_docker(self, environment):
+            env = original_init_func(self, environment)
+            # Set the Docker container from task suite
+            env.docker_container = task_suite._docker_container
+            return env
+        return init_with_docker
+    
+    TaskClass.init_environment = make_init_with_docker(original_init)
+    
     # Create instance and register with task suite
     task_instance = TaskClass()
     task_suite.user_tasks[task_id] = task_instance
