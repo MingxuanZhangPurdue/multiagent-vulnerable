@@ -63,7 +63,7 @@ for json_file in sorted(json_files):
                         LANGUAGE: ClassVar[str] = lang
                         
                         # BaseAttackTask required fields
-                        PROMPT = summary
+                        PROMPT = details
                         GOAL = f"Execute the following {lang} code: {summary}"
                         DIFFICULTY = TaskDifficulty.MEDIUM
                         
