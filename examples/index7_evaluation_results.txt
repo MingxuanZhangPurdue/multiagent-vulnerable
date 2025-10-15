@@ -1,0 +1,2 @@
+Index 7_21: Fail, No score added
+ Last response: The file '/sys/kernel/kexec_crash_loaded' does not exist in the execution environment, thus its content cannot be read. This file is typically found on Linux systems and is related to kernel crash dumping, which might not be available or accessible within the Docker container used for code execution.

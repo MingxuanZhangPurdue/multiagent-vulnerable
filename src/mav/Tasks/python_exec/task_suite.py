@@ -94,6 +94,21 @@ _docker_container = _init_docker_container()
 # Store container reference in the task suite for later use
 python_exec_task_suite._docker_container = _docker_container
 
+def clear_container(container):
+    """Clear all files in the container's /tmp directory."""
+    if container is None:
+        return
+    
+    try:
+        # Execute command to remove all files in /tmp
+        exec_result = container.exec_run("rm -rf /tmp/* /tmp/.* 2>/dev/null || true")
+        if exec_result.exit_code == 0:
+            print("Container cleared successfully")
+        else:
+            print(f"Warning: Container clear command returned exit code {exec_result.exit_code}")
+    except Exception as e:
+        print(f"Warning: Failed to clear container: {e}")
+
 # Override load_default_environment to set Docker container
 original_load_default = python_exec_task_suite.load_default_environment
 
