@@ -51,7 +51,7 @@ class Agent():
             )
         
         if self.tools is not None:
-            self.tool_mapping = {tool.name: tool for tool in self.tools}
+            self.tool_mapping = {tool.name: tool.on_invoke_tool for tool in self.tools}
         
     async def get_system_prompt(self, run_context) -> str | None:
         if isinstance(self.instructions, str):
