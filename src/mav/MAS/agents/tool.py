@@ -28,8 +28,10 @@ def convert_to_function_tool(func: Callable[..., Any]) -> FunctionTool:
 
     # Extract the description and parsed docstring
     docstring = inspect.getdoc(func) or ""
-    description = docstring
     parsed_doc = parse(docstring) if docstring else None
+    short_description = parsed_doc.short_description if parsed_doc else ""
+    long_description = parsed_doc.long_description if parsed_doc else ""
+    description = "\n\n".join(filter(None, [short_description, long_description]))
     doc_params = {p.arg_name: p for p in (parsed_doc.params if parsed_doc else [])}
 
     # Generate JSON schema for parameters
