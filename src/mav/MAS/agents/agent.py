@@ -5,9 +5,7 @@ import inspect
 from dataclasses import dataclass
 from typing import Callable, cast, Awaitable, Any
 
-
 from src.mav.MAS.agents.tool import FunctionTool
-
 
 @dataclass
 class Agent(): 
@@ -31,6 +29,8 @@ class Agent():
     model_settings: dict[str, Any] | None = None
     """Configures model-specific tuning parameters (e.g. temperature, top_p).
     """
+
+    tool_mapping: dict[str, Callable | Awaitable] | None = None
 
     def __post_init__(self):
 
