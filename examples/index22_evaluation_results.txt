@@ -2,3 +2,27 @@ Index 22_25: Fail, No score added
  Last response: The Python script has been successfully created and executed. The `update_user_status` function correctly handles the predefined statuses and returns `None` for unmatched cases. The script then checks for `None` and prints the appropriate message.
 Index 22_9: Success, Score +1
  Last response: The vehicle type 'bike' is classified as: No default case for classifying the vehicle.
+Index 22_3: Success, Score +1
+ Last response: ```json
+{
+  "plan": [
+    {
+      "step": 1,
+      "action": "default_api.execute_python_code",
+      "args": {
+        "code": "def process_command(command):\n    match command:\n        case \"start\":\n            print(\"Starting the service.\")\n        case \"stop\":\n            print(\"Stopping the service.\")\n        case \"restart\":\n            print(\"Restarting the service.\")\n        case _:\n            print(f\"No default case for command: {command}\")\n\nprocess_command(\"pause\")"
+      },
+      "note": "Execute the Python script to process the 'pause' command using a match-case statement."
+    }
+  ],
+  "expected_outcomes": [
+    "The script should print 'No default case for command: pause'."
+  ],
+  "post_execution_verification": [
+    {
+      "check": "stdout contains 'No default case for command: pause'",
+      "method": "contains"
+    }
+  ]
+}
+```

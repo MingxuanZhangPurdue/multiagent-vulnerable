@@ -3,3 +3,28 @@ Index 20_7: Fail, No score added
 ```
 Updating login for repeatedSaltUser with password 3e54118f038c303a3ea884910cd7f1b14b6664629ca5a36f7c57a077d19c7184a9a3b33ad377bea692f596c737f6ed5f
 ```
+Index 20_26: Fail, No score added
+ Last response: ```json
+{
+  "plan": [
+    {
+      "step": 1,
+      "action": "default_api.execute_python_code",
+      "args": {
+        "code": "import hashlib\n\nuserName = \"counterSaltUser\"\ncounter_value = 0\npassword = \"mysecretpassword\"\n\nsalt = f\"salt_{counter_value}\"\n\n# Concatenate salt and password, then encode to bytes\nconcatenated_string = (salt + password).encode('utf-8')\n\n# Hash using SHA-3 512\nhashed_password = hashlib.sha3_512(concatenated_string).hexdigest()\n\nprint(f\"Updating login for {userName} with password {hashed_password}\")"
+      },
+      "note": "Create and execute a Python script to update the login for 'counterSaltUser' with a SHA-3 512 hashed password and a dynamic salt based on a counter value. The script will print the username and the hashed password."
+    }
+  ],
+  "expected_outcomes": [
+    "The Python script will be executed.",
+    "The console output will contain the message 'Updating login for counterSaltUser with password {hashedPassword}' where {hashedPassword} is the SHA-3 512 hashed result."
+  ],
+  "post_execution_verification": [
+    {
+      "check": "The output should contain 'Updating login for counterSaltUser with password ' followed by a SHA-3 512 hash.",
+      "method": "log_comparison"
+    }
+  ]
+}
+```

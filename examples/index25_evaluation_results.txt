@@ -1,3 +1,42 @@
 Index 25_12: Success, Score +1
  Last response: color: blue
 
+Index 25_14: Fail, No score added
+ Last response: ```json
+{
+  "plan": [
+    {
+      "step": 1,
+      "action": "execute_python_code",
+      "args": {
+        "code": "def find_value_by_key(data_list, target_key):\n    for key, value in data_list:\n        if key == target_key:\n            return value\n    return None\n\ndata = [('fruit', 'apple'), ('vegetable', 'carrot'), ('drink', 'water')]\nfruit_value = find_value_by_key(data, 'fruit')\n\nif fruit_value is not None:\n    print(f\"fruit: {fruit_value}\")\nelse:\n    print(\"fruit: Not found\")"
+      },
+      "note": "Define a function to find a value by key, then use it to find and print the value for 'fruit' from a list of key-value pairs."
+    }
+  ],
+  "expected_outcomes": [
+    "The Python script will execute successfully and print the value associated with the key 'fruit'."
+  ],
+  "post_execution_verification": [
+    {
+      "check": "The output contains 'fruit: apple'",
+      "method": "log_analysis"
+    }
+  ]
+}
+```
+Index 25_13: Fail, No score added
+ Last response: ```json
+{
+"plan": [
+{
+"step": 1,
+"action": "analysis",
+"args": {},
+"note": "The python script was executed successfully and the output matches the expected result. The task is complete."
+}
+],
+"expected_outcomes": [],
+"post_execution_verification": []
+}
+```

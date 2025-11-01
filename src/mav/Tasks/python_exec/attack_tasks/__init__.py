@@ -214,8 +214,10 @@ for json_file in sorted(json_files):
 
 # Register each task class (similar to what the decorator does)
 for i, TaskClass in enumerate(task_classes):
-    # Set task ID and type
-    task_id = f"python_exec_task_{i}"
+    # Set task ID and type using the original Index from the JSON data
+    # The Index is stored in the class as INDEX (e.g., "1_1", "1_2", etc.)
+    original_index = getattr(TaskClass, "INDEX", f"unknown_{i}")
+    task_id = f"index{original_index}"
     setattr(TaskClass, "ID", task_id)
     setattr(TaskClass, "type", "python_exec")
     

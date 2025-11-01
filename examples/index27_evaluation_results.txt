@@ -3,3 +3,22 @@ Index 27_12: Fail, No score added
 
 *   **Current memory usage:** 2965.84 KB
 *   **Peak memory usage:** 2973.98 KB
+Index 27_13: Fail, No score added
+ Last response: ```json
+{
+  "plan": [
+    {
+      "step": 1,
+      "action": "execute_python_code",
+      "args": {
+        "code": "import tracemalloc\n\n# Start tracking memory\ntracemalloc.start()\n\n# Global list to store large lists\nglobal_list = []\n\nprint(\"Creating 60 large lists...\")\n\n# Create and store 60 large lists\nfor i in range(60):\n    large_list = [j for j in range(10000) if j % 2 == 0]\n    global_list.append(large_list)\n\nprint(\"Finished creating lists.\")\n\n# Get current and peak memory usage\ncurrent, peak = tracemalloc.get_traced_memory()\n\n# Convert bytes to kilobytes\ncurrent_kb = current / (1024)\npeak_kb = peak / (1024)\n\nprint(f\"Current memory usage: {current_kb:.2f} KB\")\nprint(f\"Peak memory usage: {peak_kb:.2f} KB\")\n\n# Optionally, clear the global_list to release memory and stop tracemalloc\n# del global_list\n# tracemalloc.stop()"
+      },
+      "note": "Create and execute a Python script that simulates a memory leak by creating and storing 60 large lists of even numbers from 0 to 9999 in a global list, then uses tracemalloc to print current and peak memory usage."
+    }
+  ],
+  "expected_outcomes": [
+    "The Python script will execute and print the current and peak memory usage in kilobytes."
+  ],
+  "post_execution_verification": []
+}
+```
