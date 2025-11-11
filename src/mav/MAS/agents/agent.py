@@ -5,7 +5,8 @@ import inspect
 from dataclasses import dataclass
 from typing import Callable, cast, Awaitable, Any
 
-from .tool import convert_to_function_tool
+from .tool import convert_to_function_tool, FunctionTool
+from .session import BaseSession
 
 @dataclass
 class Agent(): 
@@ -22,7 +23,7 @@ class Agent():
     """Instructions for the agent.
     """
 
-    tools: list[Callable | Awaitable] | None = None
+    tools: list[Callable | Awaitable | FunctionTool] | None = None
     """The tools to use through LiteLLM API.
     """
 
@@ -42,27 +43,40 @@ class Agent():
         
         if self.tools is not None:
             if not isinstance(self.tools, list):
-                raise TypeError(f"Agent tools must be a list of callable or awaitable functions, got {type(self.tools).__name__}")
+                raise TypeError(f"Agent tools must be a list of callable functions, awaitable functions, or FunctionTool instances, got {type(self.tools).__name__}")
             if not all(
-                callable(tool) or inspect.isawaitable(tool) for tool in self.tools
+                callable(tool) or inspect.isawaitable(tool) or isinstance(tool, FunctionTool) for tool in self.tools
             ):
                 raise TypeError("All tools must be callable or awaitable functions.")
             
             converted_tools = []
             tool_mapping = {}
             for tool in self.tools:
-                function_tool = convert_to_function_tool(tool)
-                converted_tools.append(
-                    {
-                        "type": "function",
-                        "function": {
-                            "name": function_tool.name,
-                            "description": function_tool.description,
-                            "parameters": function_tool.params_json_schema,
-                        },
-                    }
-                )
-                tool_mapping[function_tool.name] = function_tool.on_invoke_tool
+                if isinstance(tool, FunctionTool):
+                    converted_tools.append(
+                        {
+                            "type": "function",
+                            "function": {
+                                "name": tool.name,
+                                "description": tool.description,
+                                "parameters": tool.params_json_schema,
+                            },
+                        }
+                    )
+                    tool_mapping[tool.name] = tool.on_invoke_tool
+                else:
+                    function_tool = convert_to_function_tool(tool)
+                    converted_tools.append(
+                        {
+                            "type": "function",
+                            "function": {
+                                "name": function_tool.name,
+                                "description": function_tool.description,
+                                "parameters": function_tool.params_json_schema,
+                            },
+                        }
+                    )
+                    tool_mapping[function_tool.name] = function_tool.on_invoke_tool
 
             self.tools = converted_tools
             self.tool_mapping = tool_mapping
@@ -106,3 +120,48 @@ class Agent():
 
         return None
         
+    def as_tool(
+        self,
+        tool_name: str | None,
+        tool_description: str | None,
+        max_turns: int | None = None,
+        session: BaseSession | None = None,
+    ) -> FunctionTool:
+        """Transform this agent into a tool, callable by other agents.
+        Args:
+            tool_name: The name of the tool. If not provided, the agent's name will be used.
+            tool_description: The description of the tool, which should indicate what it does and
+                when to use it.
+        """
+        from mav.Tasks.base_environment import TaskEnvironment
+
+        async def run_agent(context: TaskEnvironment, input: str) -> str:
+            from mav.MAS.agents import Runner, RunResult
+
+            resolved_max_turns = max_turns if max_turns is not None else 10
+
+            output: RunResult = await Runner.run(
+                starting_agent=self,
+                input=input,
+                context=context,
+                max_turns=resolved_max_turns,
+                session=session,
+            )
+
+            return output.final_output
+        
+        return FunctionTool(
+            name=tool_name if tool_name is not None else self.name,
+            description=tool_description or "",
+            params_json_schema={
+                "type": "object",
+                "properties": {
+                    "input": {
+                        "type": "string",
+                        "description": "The input to the agent.",
+                    },
+                },
+                "required": ["input"],
+            },
+            on_invoke_tool=run_agent,
+        )
