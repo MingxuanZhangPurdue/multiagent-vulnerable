@@ -120,6 +120,8 @@ class Runner:
 
         responses: list[dict[str, Any]] = []
 
+        all_tool_calls: list[dict[str, Any]] = []
+
         final_output = None
 
         if session is None:
@@ -165,6 +167,13 @@ class Runner:
             if not tool_calls:
                 break
 
+            for tool_call in tool_calls:
+                all_tool_calls.append({
+                    "tool_name": tool_call.function.name,
+                    "tool_arguments": tool_call.function.arguments,
+                    "tool_call_id": tool_call.id,
+                })
+
             intermediate_messages = await invoke_functions_from_response(
                 tool_calls=tool_calls,  
                 tool_mapping=agent.tool_mapping,
@@ -180,5 +189,6 @@ class Runner:
             raw_responses=responses,
             time_duration=time.monotonic() - run_start_time,
             usage=usage,
-            input_items=await session.get_copy_of_items()
+            input_items=await session.get_copy_of_items(),
+            tool_calls=all_tool_calls
         )

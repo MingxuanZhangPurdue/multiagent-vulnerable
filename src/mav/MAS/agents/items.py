@@ -17,3 +17,6 @@ class RunResult:
 
     input_items: list[dict[str, Any]]
     """The list of input items provided to its underlying model during its run."""
+
+    tool_calls: list[dict[str, Any]] = None
+    """A list of tool calls made by the agent during its run."""
