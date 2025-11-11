@@ -7,7 +7,7 @@ from typing import Callable, cast, Awaitable, Any
 
 from .tool import convert_to_function_tool, FunctionTool
 from .session import BaseSession
-
+from mav.Tasks.base_environment import TaskEnvironment
 @dataclass
 class Agent(): 
 
@@ -133,7 +133,6 @@ class Agent():
             tool_description: The description of the tool, which should indicate what it does and
                 when to use it.
         """
-        from mav.Tasks.base_environment import TaskEnvironment
 
         async def run_agent(context: TaskEnvironment, input: str) -> str:
             from mav.MAS.agents import Runner, RunResult
@@ -141,7 +140,7 @@ class Agent():
             resolved_max_turns = max_turns if max_turns is not None else 10
 
             output: RunResult = await Runner.run(
-                starting_agent=self,
+                agent=self,
                 input=input,
                 context=context,
                 max_turns=resolved_max_turns,

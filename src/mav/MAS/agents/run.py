@@ -33,35 +33,32 @@ def update_usage(
 
 def _accepts_task_environment(func: Callable) -> bool:
     """Check if the function's first parameter is typed as TaskEnvironment or subclass."""
-    try:
-        # Get function signature and type hints
-        sig = inspect.signature(func)
-        params = list(sig.parameters.values())
-        
-        # Check if there's at least one parameter
-        if not params:
-            return False
-        
-        first_param = params[0]
-        
-        # Only check positional parameters
-        if first_param.kind not in (
-            inspect.Parameter.POSITIONAL_ONLY,
-            inspect.Parameter.POSITIONAL_OR_KEYWORD,
-        ):
-            return False
-        
-        # Get type hints
-        type_hints = get_type_hints(func)
-        param_type = type_hints.get(first_param.name)
-        
-        # Check if the type is TaskEnvironment or a subclass
-        if param_type and inspect.isclass(param_type):
-            return issubclass(param_type, TaskEnvironment)
-        
+    # Get function signature and type hints
+    sig = inspect.signature(func)
+    params = list(sig.parameters.values())
+    
+    # Check if there's at least one parameter
+    if not params:
         return False
-    except Exception:
+    
+    first_param = params[0]
+    
+    # Only check positional parameters
+    if first_param.kind not in (
+        inspect.Parameter.POSITIONAL_ONLY,
+        inspect.Parameter.POSITIONAL_OR_KEYWORD,
+    ):
         return False
+    
+    # Get type hints
+    type_hints = get_type_hints(func)
+    param_type = type_hints.get(first_param.name)
+    
+    # Check if the type is TaskEnvironment or a subclass
+    if param_type and inspect.isclass(param_type):
+        return issubclass(param_type, TaskEnvironment)
+    
+    return False
 
 async def invoke_functions_from_response(
     tool_calls: list[ChatCompletionMessageToolCall],
@@ -145,6 +142,8 @@ class Runner:
 
             system_prompt = await agent.get_system_prompt(run_context=context)
 
+            model_settings = agent.model_settings if agent.model_settings is not None else {}
+
             model_response: ModelResponse = await litellm.acompletion(
                 model = agent.model,
                 messages = [
@@ -152,7 +151,7 @@ class Runner:
                     *await session.get_items(),
                 ],
                 tools = agent.tools,
-                **agent.model_settings
+                **model_settings
             )
 
             responses.append(model_response.to_dict())

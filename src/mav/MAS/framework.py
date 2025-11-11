@@ -9,6 +9,13 @@ from agents import (
     ModelResponse
 )
 
+from mav.MAS.agents import (
+    Agent,
+    Runner,
+    InMemorySession,
+    RunResult
+)
+
 from typing import Any, Literal, get_args
 from pydantic import BaseModel
 
@@ -97,12 +104,12 @@ class MultiAgentSystem:
         usage: dict[str, list[dict[str, int]]] = {
             self.agents.name: []
         }
-
-        tool_calls: list[dict[str, Any]] = []
         
         input_list_dict: dict[str, list[dict[str, Any]]] = {
             self.agents.name: []
         }
+
+        tool_calls: list[dict[str, Any]] = []
 
         attack_components = AttackComponents(
             input=input,
@@ -113,7 +120,7 @@ class MultiAgentSystem:
         )
 
         if self.use_memory:
-            memory = SQLiteSession(session_id="handoff_memory")
+            memory = InMemorySession(session_id="handoff_memory")
         else:
             memory = None
 
@@ -123,8 +130,8 @@ class MultiAgentSystem:
         print("Running handoffs")
 
         try:
-            agent_result = await Runner.run(
-                starting_agent=self.agents,
+            agent_result: RunResult = await Runner.run(
+                agent=self.agents,
                 input=attack_components.input,
                 context=env,
                 session=memory,
@@ -144,19 +151,13 @@ class MultiAgentSystem:
         if attack_hooks is not None:
             execute_attacks(attack_hooks=attack_hooks, event_name="on_agent_end", iteration=0, components=attack_components)
 
-        usage[self.agents.name].append(self.extract_usage(agent_result.raw_responses))
+        usage[self.agents.name].append(agent_result.usage)
 
         print("Getting response from handoffs")
 
-        for response in agent_result.raw_responses:
-            for item in response.output:
-                if item.type == "function_call":
-                    tool_calls.append({
-                        "tool_name": item.name,
-                        "tool_arguments": item.arguments
-                    })
+        tool_calls.extend(agent_result.tool_calls)
 
-        input_list_dict[self.agents.name].extend(agent_result.to_input_list())
+        input_list_dict[self.agents.name].extend(agent_result.input_items)
 
         return {
             "final_output": attack_components.final_output,
