@@ -1,7 +1,9 @@
 import inspect
 from dataclasses import dataclass
-from typing import Any, Callable
+from typing import Any, Callable, get_type_hints
 from docstring_parser import parse
+
+from mav.Tasks.base_environment import TaskEnvironment
 
 @dataclass
 class FunctionTool:
@@ -18,10 +20,27 @@ class FunctionTool:
     on_invoke_tool: Callable[..., Any]
     """The function to call when the tool is invoked"""
 
+def _is_context_parameter(param: inspect.Parameter, func: Callable) -> bool:
+    """Check if a parameter is a TaskEnvironment context parameter."""
+    try:
+        # Get type hints for the function
+        type_hints = get_type_hints(func)
+        param_type = type_hints.get(param.name)
+        
+        # Check if the parameter type is TaskEnvironment or a subclass
+        if param_type and inspect.isclass(param_type):
+            return issubclass(param_type, TaskEnvironment)
+        
+        return False
+    except Exception:
+        return False
+
 def convert_to_function_tool(func: Callable[..., Any]) -> FunctionTool:
     """
     Helper function to convert a regular function into a FunctionTool
     by inspecting its signature and docstring.
+    
+    Automatically excludes TaskEnvironment context parameters from the schema.
     """
     # Extract the function name
     name = func.__name__
@@ -77,6 +96,10 @@ def convert_to_function_tool(func: Callable[..., Any]) -> FunctionTool:
 
     for param in parameters.values():
         if param.kind in (param.POSITIONAL_OR_KEYWORD, param.KEYWORD_ONLY):
+            # Skip TaskEnvironment context parameters
+            if _is_context_parameter(param, func):
+                continue
+            
             doc_param = doc_params.get(param.name)
             property_schema = {
                 "type": resolve_json_type(param.annotation, getattr(doc_param, "type_name", None)),
