@@ -554,16 +554,6 @@ class UserTask13(BankingUserTask):
             return pt1 and pt2 and pt3
         except IndexError:
             return False
-        
-
-banking_task_combinator = TaskCombinator[BankingUserTask, BankingEnvironment](task_suite)
-
-banking_task_combinator.create_combined_task(
-    "UserTask14",
-    task_suite.user_tasks["user_task_6"],
-    task_suite.user_tasks["user_task_7"],
-)
-
 
 @task_suite.register_user_task()
 class UserTask15(BankingUserTask):
@@ -792,6 +782,14 @@ class UserTask22(BankingUserTask):
                 for t in post_environment.bank_account.transactions
             )
         return True
+    
+banking_task_combinator = TaskCombinator[BankingUserTask, BankingEnvironment](task_suite)
+
+banking_task_combinator.create_combined_task(
+    "UserTask14",
+    task_suite.user_tasks["user_task_6"],
+    task_suite.user_tasks["user_task_7"],
+)
 
 banking_task_combinator.create_combined_task(
     "UserTask23",
