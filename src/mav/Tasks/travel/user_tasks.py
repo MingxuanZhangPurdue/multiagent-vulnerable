@@ -6,6 +6,7 @@ from mav.Tasks.travel.task_suite import travel_task_suite as task_suite
 from mav.Tasks.travel.environment import TravelEnvironment
 from mav.Tasks.travel.task_suite import TravelDeepDiff
 from mav.items import FunctionCall
+from mav.Tasks.task_combinator import TaskCombinator
 
 TravelUserTask = BaseUserTask[TravelEnvironment]
 
@@ -1770,3 +1771,66 @@ class UserTask19(TravelUserTask):
         ):
             return True
         return False
+
+
+travel_task_combinator = TaskCombinator[TravelUserTask, TravelEnvironment](task_suite)
+
+travel_task_combinator.create_combined_task(
+    "UserTask20",
+    task_suite.user_tasks["user_task_0"],
+    task_suite.user_tasks["user_task_7"],
+)
+
+travel_task_combinator.create_combined_task(
+    "UserTask21",
+    task_suite.user_tasks["user_task_1"],
+    task_suite.user_tasks["user_task_13"],
+)
+
+travel_task_combinator.create_combined_task(
+    "UserTask22",
+    task_suite.user_tasks["user_task_2"],
+    task_suite.user_tasks["user_task_10"],
+)
+
+travel_task_combinator.create_combined_task(
+    "UserTask23",
+    task_suite.user_tasks["user_task_3"],
+    task_suite.user_tasks["user_task_14"],
+)
+
+travel_task_combinator.create_combined_task(
+    "UserTask24",
+    task_suite.user_tasks["user_task_4"],
+    task_suite.user_tasks["user_task_8"],
+)
+
+travel_task_combinator.create_combined_task(
+    "UserTask25",
+    task_suite.user_tasks["user_task_5"],
+    task_suite.user_tasks["user_task_9"],
+)
+
+travel_task_combinator.create_combined_task(
+    "UserTask26",
+    task_suite.user_tasks["user_task_6"],
+    task_suite.user_tasks["user_task_16"],
+)
+
+travel_task_combinator.create_combined_task(
+    "UserTask27",
+    task_suite.user_tasks["user_task_11"],
+    task_suite.user_tasks["user_task_13"],
+)
+
+travel_task_combinator.create_combined_task(
+    "UserTask28",
+    task_suite.user_tasks["user_task_12"],
+    task_suite.user_tasks["user_task_15"],
+)
+
+travel_task_combinator.create_combined_task(
+    "UserTask29",
+    task_suite.user_tasks["user_task_17"],
+    task_suite.user_tasks["user_task_18"],
+)
