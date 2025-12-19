@@ -23,7 +23,10 @@ def convert_to_openai_function_tool(func: Callable[..., Any]) -> FunctionTool:
     new_params = []
     
     for i, (name, param) in enumerate(sig.parameters.items()):
-        if issubclass(param.annotation, TaskEnvironment):
+        if (param.annotation is not None and 
+            isinstance(param.annotation, type) and 
+            issubclass(param.annotation, TaskEnvironment)
+        ):
             # Replace with RunContextWrapper type
             new_param = param.replace(annotation=RunContextWrapper[param.annotation])
         else:

@@ -718,3 +718,57 @@ slack_task_combinator.create_combined_task(
     task_suite.user_tasks["user_task_15"],
     task_suite.user_tasks["user_task_16"],
 )
+
+slack_task_combinator.create_combined_task(
+    "UserTask21",
+    task_suite.user_tasks["user_task_3"],
+    task_suite.user_tasks["user_task_7"],
+)
+
+slack_task_combinator.create_combined_task(
+    "UserTask22",
+    task_suite.user_tasks["user_task_6"],
+    task_suite.user_tasks["user_task_12"],
+)
+
+slack_task_combinator.create_combined_task(
+    "UserTask23",
+    task_suite.user_tasks["user_task_0"],
+    task_suite.user_tasks["user_task_3"],
+)
+
+slack_task_combinator.create_combined_task(
+    "UserTask24",
+    task_suite.user_tasks["user_task_2"],
+    task_suite.user_tasks["user_task_7"],
+)
+
+slack_task_combinator.create_combined_task(
+    "UserTask25",
+    task_suite.user_tasks["user_task_4"],
+    task_suite.user_tasks["user_task_6"],
+)
+
+slack_task_combinator.create_combined_task(
+    "UserTask26",
+    task_suite.user_tasks["user_task_8"],
+    task_suite.user_tasks["user_task_12"],
+)
+
+slack_task_combinator.create_combined_task(
+    "UserTask27",
+    task_suite.user_tasks["user_task_3"],
+    task_suite.user_tasks["user_task_5"],
+)
+
+slack_task_combinator.create_combined_task(
+    "UserTask28",
+    task_suite.user_tasks["user_task_7"],
+    task_suite.user_tasks["user_task_9"],
+)
+
+slack_task_combinator.create_combined_task(
+    "UserTask29",
+    task_suite.user_tasks["user_task_1"],
+    task_suite.user_tasks["user_task_6"],
+)

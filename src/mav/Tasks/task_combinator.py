@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING, Generic, TypeVar
 from mav.Tasks.base_tasks import BaseUserTask, TaskDifficulty
 from mav.items import FunctionCall
 from mav.Tasks.base_environment import TaskEnvironment
+from mav.Tasks.task_suite import TaskSuite
 
 if TYPE_CHECKING:
     from agentdojo.task_suite import TaskSuite
@@ -13,7 +14,7 @@ ENV = TypeVar("ENV", bound=TaskEnvironment)
 
 
 class TaskCombinator(Generic[TASK, ENV]):
-    def __init__(self, task_suite: "TaskSuite"):
+    def __init__(self, task_suite: TaskSuite):
         self.task_suite = task_suite
 
     def create_combined_task(
@@ -24,7 +25,9 @@ class TaskCombinator(Generic[TASK, ENV]):
         prompt: str | None = None,
     ):
         new_combined_task = self._create_combined_task(new_task_name, user_task_1, user_task_2, prompt)
-        self.task_suite.register_user_task(new_combined_task)
+        # register_user_task returns a decorator, so we need to call it to get the decorator function
+        # then call that function with our task class
+        self.task_suite.register_user_task()(new_combined_task)
         
     def _create_combined_task(
         self,
