@@ -29,7 +29,7 @@ class Agent():
     """
 
     model_settings: dict[str, Any] | None = None
-    """Configures model-specific tuning parameters (e.g. temperature, top_p).
+    """Configures model-specific tuning parameters (e.g. temperature, top_p, thinking, reasoning, please refer to litellm official documentation for different models and endpoints).
     """
 
     tool_mapping: dict[str, Callable | Awaitable] | None = None
