@@ -15,6 +15,13 @@ from .agent import Agent
 from .session import BaseSession, InMemorySession
 from .items import RunResult
 from .tool import FunctionToolResult
+from .guardrail import (
+    InputGuardrail,
+    OutputGuardrail,
+    InputGuardrailResult,
+    OutputGuardrailResult,
+    GuardrailTripwireTriggered
+)
 
 from mav.Tasks.base_environment import TaskEnvironment
 from mav.MAS.attack_hook import AttackHook
@@ -207,6 +214,48 @@ class Runner:
         return model.startswith("openai/")
     
     @classmethod
+    async def _run_input_guardrails(
+        cls,
+        guardrails: list[InputGuardrail],
+        context: TaskEnvironment | None,
+        agent: Agent,
+        input: str | list[dict[str, Any]] | dict[str, Any],
+    ) -> list[InputGuardrailResult]:
+        """Run input guardrails sequentially before agent execution."""
+        if not guardrails:
+            return []
+        
+        results = []
+        for guardrail in guardrails:
+            result = await guardrail.run(context, agent, input)
+            results.append(result)
+            if result.output.tripwire_triggered:
+                raise GuardrailTripwireTriggered(result)
+        
+        return results
+    
+    @classmethod
+    async def _run_output_guardrails(
+        cls,
+        guardrails: list[OutputGuardrail],
+        context: TaskEnvironment | None,
+        agent: Agent,
+        agent_output: Any,
+    ) -> list[OutputGuardrailResult]:
+        """Run output guardrails sequentially after agent execution."""
+        if not guardrails:
+            return []
+        
+        results = []
+        for guardrail in guardrails:
+            result = await guardrail.run(context, agent, agent_output)
+            results.append(result)
+            if result.output.tripwire_triggered:
+                raise GuardrailTripwireTriggered(result)
+        
+        return results
+    
+    @classmethod
     async def run(
         cls,
         agent: Agent,
@@ -263,6 +312,15 @@ class Runner:
         attack_hooks: list[AttackHook] | None = None,
         max_turns: int = 10,
     ) -> RunResult:
+        
+        # Run input guardrails BEFORE agent execution
+        if agent.input_guardrails:
+            await cls._run_input_guardrails(
+                agent.input_guardrails,
+                context,
+                agent,
+                input
+            )
         
         turn = 0
 
@@ -332,8 +390,11 @@ class Runner:
 
             # Update usage from tool invocations for tool calls that called llms internally
             for item in intermediate_messages:
+                # if usage is not None add to total usage
                 if item.get("usage"):
                     usage = update_usage(usage, item["usage"])
+                # Need to remove usage from item before adding to session
+                if "usage" in item:
                     item.pop("usage")
 
             await session.add_items(intermediate_messages)
@@ -349,7 +410,16 @@ class Runner:
                         final_output.append(content_part.text)
 
         # Join all messages or take the last one
-        final_output = "\n".join(final_output) if final_output else None
+        final_output = "\n".join(final_output) if final_output else ""
+
+        # Run output guardrails AFTER agent execution
+        if agent.output_guardrails:
+            await cls._run_output_guardrails(
+                agent.output_guardrails,
+                context,
+                agent,
+                final_output
+            )
 
         return RunResult(
             final_output=final_output,
@@ -370,6 +440,15 @@ class Runner:
         attack_hooks: list[AttackHook] | None = None,
         max_turns: int = 10,
     ) -> RunResult:
+        
+        # Run input guardrails BEFORE agent execution
+        if agent.input_guardrails:
+            await cls._run_input_guardrails(
+                agent.input_guardrails,
+                context,
+                agent,
+                input
+            )
         
         turn = 0
 
@@ -436,8 +515,11 @@ class Runner:
 
             # Update usage from tool invocations for tool calls that called llms internally
             for item in intermediate_messages:
+                # if usage is not None add to total usage
                 if item.get("usage"):
                     usage = update_usage(usage, item["usage"])
+                # Need to remove usage from item before adding to session
+                if "usage" in item:
                     item.pop("usage")
 
             await session.add_items(intermediate_messages)
@@ -445,6 +527,15 @@ class Runner:
             turn += 1
 
         final_output = model_response.choices[0].message.content
+
+        # Run output guardrails AFTER agent execution
+        if agent.output_guardrails:
+            await cls._run_output_guardrails(
+                agent.output_guardrails,
+                context,
+                agent,
+                final_output
+            )
 
         return RunResult(
             final_output=final_output,

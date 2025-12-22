@@ -2,11 +2,15 @@ from __future__ import annotations
 
 import inspect
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Callable, cast, Awaitable, Any, Literal
 
 from .tool import convert_to_function_tool, FunctionTool, FunctionToolResult
 from .session import BaseSession
+from .guardrail import (
+    InputGuardrail,
+    OutputGuardrail
+)
 from mav.Tasks.base_environment import TaskEnvironment
 
 @dataclass
@@ -33,6 +37,16 @@ class Agent():
     """
 
     tool_mapping: dict[str, Callable | Awaitable] | None = None
+    """A mapping from tool names to their corresponding callable or awaitable functions. Will be populated if tools are provided.
+    """
+
+    input_guardrails: list[InputGuardrail] = field(default_factory=list)
+    """A list of input guardrails to apply to the agent's input during its run.
+    """
+
+    output_guardrails: list[OutputGuardrail] = field(default_factory=list)
+    """A list of output guardrails to apply to the agent's output during its run.
+    """
 
     def __post_init__(self):
 
