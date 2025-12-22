@@ -1,3 +1,4 @@
+from __future__ import annotations
 import inspect
 from dataclasses import dataclass
 from typing import Any, Callable, get_type_hints
@@ -17,8 +18,19 @@ class FunctionTool:
     params_json_schema: dict[str, Any]
     """The JSON schema of the parameters of the function tool"""
 
-    on_invoke_tool: Callable[..., Any]
-    """The function to call when the tool is invoked"""
+    on_invoke_tool: Callable[..., str | FunctionToolResult]
+    """The function to call when the tool is invoked, the function should return either a string or a FunctionToolResult."""
+
+@dataclass
+class FunctionToolResult:
+    output: str | Any
+    """The result returned by the function tool."""
+
+    usage: dict[str, dict[str, Any]] | None = None
+    """A dictionary containing usage statistics during the function tool call, since the function may involve model usage."""
+
+    appendix: dict[str, Any] | None = None
+    """An optional dictionary containing any additional information related to the function tool call."""
 
 def _is_context_parameter(param: inspect.Parameter, func: Callable) -> bool:
     """Check if a parameter is a TaskEnvironment context parameter."""

@@ -3,11 +3,12 @@ from __future__ import annotations
 import inspect
 
 from dataclasses import dataclass
-from typing import Callable, cast, Awaitable, Any
+from typing import Callable, cast, Awaitable, Any, Literal
 
-from .tool import convert_to_function_tool, FunctionTool
+from .tool import convert_to_function_tool, FunctionTool, FunctionToolResult
 from .session import BaseSession
 from mav.Tasks.base_environment import TaskEnvironment
+
 @dataclass
 class Agent(): 
 
@@ -125,16 +126,19 @@ class Agent():
         tool_name: str | None,
         tool_description: str | None,
         max_turns: int | None = None,
+        endpoint: Literal["responses", "completion"] | None = None,
         session: BaseSession | None = None,
     ) -> FunctionTool:
-        """Transform this agent into a tool, callable by other agents.
+        """
+        An convenience method to transform this agent into a tool that accepts TaskEnvironment as context, callable by other agents.
+        Note that
         Args:
             tool_name: The name of the tool. If not provided, the agent's name will be used.
             tool_description: The description of the tool, which should indicate what it does and
                 when to use it.
         """
 
-        async def run_agent(context: TaskEnvironment, input: str) -> str:
+        async def run_agent(context: TaskEnvironment | None = None, input: str = "") -> FunctionToolResult:
             from mav.MAS.agents import Runner, RunResult
 
             resolved_max_turns = max_turns if max_turns is not None else 10
@@ -145,9 +149,14 @@ class Agent():
                 context=context,
                 max_turns=resolved_max_turns,
                 session=session,
+                endpoint=endpoint,
             )
 
-            return output.final_output
+            return FunctionToolResult(
+                output=output.final_output if output.final_output is not None else "",
+                usage=output.usage,
+                appendix=None,
+            )
         
         return FunctionTool(
             name=tool_name if tool_name is not None else self.name,

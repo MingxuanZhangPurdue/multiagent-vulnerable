@@ -14,6 +14,7 @@ from litellm.types.llms.openai import (
 from .agent import Agent
 from .session import BaseSession, InMemorySession
 from .items import RunResult
+from .tool import FunctionToolResult
 
 from mav.Tasks.base_environment import TaskEnvironment
 from mav.MAS.attack_hook import AttackHook
@@ -113,12 +114,26 @@ async def invoke_functions_from_responses(
             result = await tool(*positional_args, **tool_arguments)
         else:
             result = await asyncio.to_thread(tool, *positional_args, **tool_arguments)
+
+        output = None
+        tool_usage = None
+        if isinstance(result, str):
+            output = result
+        elif isinstance(result, FunctionToolResult):
+            output = result.output
+            tool_usage = result.usage
+        else:
+            raise TypeError(
+                f"Tool function '{tool_name}' returned unsupported type '{type(result).__name__}'. "
+                f"Expected 'str' or 'FunctionCallResult'."
+            )
         
         # Return formatted response
         return {
             "call_id": tool_call.call_id,
             "type": "function_call_output",
-            "output": result,
+            "output": output,
+            "usage": tool_usage,
         }
     
     # Execute all tool calls concurrently
@@ -153,13 +168,27 @@ async def invoke_functions_from_completion(
             result = await tool(*positional_args, **tool_arguments)
         else:
             result = await asyncio.to_thread(tool, *positional_args, **tool_arguments)
+            
+        content = None
+        tool_usage = None
+        if isinstance(result, str):
+            content = result
+        elif isinstance(result, FunctionToolResult):
+            content = result.output
+            tool_usage = result.usage
+        else:
+            raise TypeError(
+                f"Tool function '{tool_name}' returned unsupported type '{type(result).__name__}'. "
+                f"Expected 'str' or 'FunctionCallResult'."
+            )
         
         # Return formatted response
         return {
             "tool_call_id": tool_call.id,
             "role": "tool",
             "name": tool_name,
-            "content": result,
+            "content": content,
+            "usage": tool_usage,
         }
     
     # Execute all tool calls concurrently
@@ -217,7 +246,7 @@ class Runner:
                 input=input,
                 context=context,
                 session=session,
-                hooks=attack_hooks,
+                attack_hooks=attack_hooks,
                 max_turns=max_turns,
             )
         
@@ -236,8 +265,6 @@ class Runner:
     ) -> RunResult:
         
         turn = 0
-
-        responses: list[dict[str, Any]] = []
 
         all_tool_calls: list[dict[str, Any]] = []
 
@@ -279,13 +306,12 @@ class Runner:
             tool_calls: list[ResponseFunctionToolCall] = []
             
             for item in model_response.output:
-                responses.append(item.to_dict())
                 await session.add_items([item.to_dict()])
                 if item.type == "function_call":
                     tool_calls.append(item)
 
             if model_response.usage is not None:
-                usage = update_usage(usage, model_response.usage.model_dump())
+                usage = update_usage(usage, {agent.model: model_response.usage.model_dump()})
 
             # ReAct loop: break if no tool calls
             if not tool_calls:
@@ -304,6 +330,12 @@ class Runner:
                 context=context,
             )
 
+            # Update usage from tool invocations for tool calls that called llms internally
+            for item in intermediate_messages:
+                if item.get("usage"):
+                    usage = update_usage(usage, item["usage"])
+                    item.pop("usage")
+
             await session.add_items(intermediate_messages)
 
             turn += 1
@@ -321,7 +353,6 @@ class Runner:
 
         return RunResult(
             final_output=final_output,
-            raw_responses=responses,
             time_duration=time.monotonic() - run_start_time,
             usage=usage,
             input_items=await session.get_copy_of_items(),
@@ -341,8 +372,6 @@ class Runner:
     ) -> RunResult:
         
         turn = 0
-
-        responses: list[dict[str, Any]] = []
 
         all_tool_calls: list[dict[str, Any]] = []
 
@@ -381,14 +410,12 @@ class Runner:
                 **model_settings
             )
 
-            responses.append(model_response.to_dict())
-
             await session.add_items([model_response.choices[0].message.to_dict()])
 
             tool_calls = model_response.choices[0].message.tool_calls
 
             if model_response.usage is not None:
-                usage = update_usage(usage, model_response.usage.to_dict())
+                usage = update_usage(usage, {agent.model:model_response.usage.to_dict()})
 
             # ReAct loop: break if no tool calls
             if not tool_calls:
@@ -407,6 +434,12 @@ class Runner:
                 context=context,
             )
 
+            # Update usage from tool invocations for tool calls that called llms internally
+            for item in intermediate_messages:
+                if item.get("usage"):
+                    usage = update_usage(usage, item["usage"])
+                    item.pop("usage")
+
             await session.add_items(intermediate_messages)
 
             turn += 1
@@ -415,7 +448,6 @@ class Runner:
 
         return RunResult(
             final_output=final_output,
-            raw_responses=responses,
             time_duration=time.monotonic() - run_start_time,
             usage=usage,
             input_items=await session.get_copy_of_items(),
