@@ -38,6 +38,9 @@ def update_usage(
 def transform_tool_format_from_completion_to_responses(
     tools: list[dict[str, Any]] | None
 ) -> list[dict[str, Any]] | None:
+    """
+    transform tools format from completion endpoint to responses endpoint.
+    """
     if tools:
         transformed_tools = []
         for tool in tools:
@@ -45,12 +48,10 @@ def transform_tool_format_from_completion_to_responses(
                 transformed_tool = {
                     "name": tool["function"]["name"],
                     "type": "function",
-                    "description": tool["function"].get("description", ""),
-                    "parameters": tool["function"].get("parameters", {}),
+                    "description": tool["function"]["description"],
+                    "parameters": tool["function"]["parameters"],
                 }
                 transformed_tools.append(transformed_tool)
-            else:
-                transformed_tools.append(tool)
         return transformed_tools
     else:
         return tools
@@ -84,13 +85,13 @@ def _accepts_task_environment(func: Callable) -> bool:
     
     return False
 
-async def invoke_functions_from_response(
+async def invoke_functions_from_responses(
     tool_calls: list[ResponseFunctionToolCall],
     tool_mapping: dict[str, Callable],
     context: TaskEnvironment | None = None
 ) -> list[dict[str, Any]]:
     """
-    Invoke tool functions concurrently, with optional context injection.
+    Invoke tool functions concurrently from responses endpoint, with optional context injection.
     
     If context is provided and a tool's first parameter is typed as TaskEnvironment
     (or subclass), the context will be injected as the first positional argument.
@@ -130,7 +131,7 @@ async def invoke_functions_from_completion(
     context: TaskEnvironment | None = None
 ) -> list[dict[str, Any]]:
     """
-    Invoke tool functions concurrently, with optional context injection.
+    Invoke tool functions concurrently from completion endpoint, with optional context injection.
     
     If context is provided and a tool's first parameter is typed as TaskEnvironment
     (or subclass), the context will be injected as the first positional argument.
@@ -171,7 +172,7 @@ class Runner:
         cls,
         model: str
     ) -> bool:
-        """Check if the model supports the responses endpoint.
+        """Check if the model supports litellm responses endpoint.
         For now, only models starting with "openai/" are supported.
         """
         return model.startswith("openai/")
@@ -183,7 +184,7 @@ class Runner:
         input: str | list[dict[str, Any]] | dict[str, Any],
         context: TaskEnvironment | None = None,
         session: BaseSession | None = None,
-        hooks: list[AttackHook] | None = None,
+        attack_hooks: list[AttackHook] | None = None,
         max_turns: int = 10,
         endpoint: Literal["completion", "responses"] | None = None
     ):
@@ -204,7 +205,7 @@ class Runner:
                 input=input,
                 context=context,
                 session=session,
-                hooks=hooks,
+                attack_hooks=attack_hooks,
                 max_turns=max_turns,
             )
 
@@ -216,7 +217,7 @@ class Runner:
                 input=input,
                 context=context,
                 session=session,
-                hooks=hooks,
+                hooks=attack_hooks,
                 max_turns=max_turns,
             )
         
@@ -230,7 +231,7 @@ class Runner:
         input: str | list[dict[str, Any]] | dict[str, Any],
         context: TaskEnvironment | None = None,
         session: BaseSession | None = None,
-        hooks: list[AttackHook] | None = None,
+        attack_hooks: list[AttackHook] | None = None,
         max_turns: int = 10,
     ) -> RunResult:
         
@@ -243,7 +244,7 @@ class Runner:
         final_output = None
 
         if session is None:
-            # Create a temporary in-memory session for this run if none is provided
+            # Create a temporary in-memory session for this run if session is not provided
             session = InMemorySession(session_id="runner_temp_session")
 
         run_start_time = time.monotonic()
@@ -286,6 +287,7 @@ class Runner:
             if model_response.usage is not None:
                 usage = update_usage(usage, model_response.usage.model_dump())
 
+            # ReAct loop: break if no tool calls
             if not tool_calls:
                 break
 
@@ -296,7 +298,7 @@ class Runner:
                     "tool_call_id": tool_call.call_id
                 })
 
-            intermediate_messages = await invoke_functions_from_response(
+            intermediate_messages = await invoke_functions_from_responses(
                 tool_calls=tool_calls,  
                 tool_mapping=agent.tool_mapping,
                 context=context,
@@ -306,11 +308,16 @@ class Runner:
 
             turn += 1
 
-        final_output = None
-        for item in responses[::-1]:
-            if item.get("type") == "message":
-                final_output = item["content"][0]["text"]
-                break
+        # Extract all message outputs from the last response
+        final_output = []
+        for item in model_response.output:
+            if item.type == "message":
+                for content_part in item.content:
+                    if content_part.type == "output_text":
+                        final_output.append(content_part.text)
+
+        # Join all messages or take the last one
+        final_output = "\n".join(final_output) if final_output else None
 
         return RunResult(
             final_output=final_output,
@@ -329,7 +336,7 @@ class Runner:
         input: str | list[dict[str, Any]] | dict[str, Any],
         context: TaskEnvironment | None = None,
         session: BaseSession | None = None,
-        hooks: list[AttackHook] | None = None,
+        attack_hooks: list[AttackHook] | None = None,
         max_turns: int = 10,
     ) -> RunResult:
         
@@ -342,7 +349,7 @@ class Runner:
         final_output = None
 
         if session is None:
-            # Create a temporary in-memory session for this run if none is provided
+            # Create a temporary in-memory session for this run if session is not provided
             session = InMemorySession(session_id="runner_temp_session")
 
         run_start_time = time.monotonic()
@@ -383,6 +390,7 @@ class Runner:
             if model_response.usage is not None:
                 usage = update_usage(usage, model_response.usage.to_dict())
 
+            # ReAct loop: break if no tool calls
             if not tool_calls:
                 break
 
@@ -403,7 +411,7 @@ class Runner:
 
             turn += 1
 
-        final_output = responses[-1]["choices"][0]["message"]["content"]
+        final_output = model_response.choices[0].message.content
 
         return RunResult(
             final_output=final_output,
