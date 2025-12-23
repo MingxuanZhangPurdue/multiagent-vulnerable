@@ -1,14 +1,15 @@
 from abc import ABC, abstractmethod
-from typing import List, Dict, Any
+from typing import Any
 from mav.Tasks.base_environment import TaskEnvironment
-# from mav.Tasks.web.environment import ActionTypes
 
 class BaseTermination(ABC):
     @abstractmethod
     def __call__(self, 
-            iteration: int | None = None, 
-            results: List[Dict[str, Any]] | None = None, 
-            env: TaskEnvironment | None = None
+        iteration: int | None = None, 
+        input_items_dict: dict[str, list[list[dict[str, Any]]]] | None = None,
+        tool_calls_dict: dict[str, list[list[dict[str, Any]]]] | None = None,
+        output_dict: dict[str, list[Any]] | None = None,
+        env: TaskEnvironment | None = None
     ) -> bool:
         """Check if the termination condition is met.
         Returns:
@@ -25,11 +26,13 @@ class AndTermination(BaseTermination):
         self.conditions = conditions
 
     def __call__(self, 
-            iteration: int | None = None, 
-            results: List[Dict[str, Any]] | None = None, 
-            env: TaskEnvironment | None = None
+        iteration: int | None = None, 
+        input_items_dict: dict[str, list[list[dict[str, Any]]]] | None = None,
+        tool_calls_dict: dict[str, list[list[dict[str, Any]]]] | None = None,
+        output_dict: dict[str, list[Any]] | None = None,
+        env: TaskEnvironment | None = None
     ) -> bool:
-        return all(condition(iteration, results) for condition in self.conditions)
+        return all(condition(iteration, input_items_dict, tool_calls_dict, output_dict, env) for condition in self.conditions)
 
 class OrTermination(BaseTermination):
     """Termination condition that is met when at least one of the provided conditions is met.
@@ -40,11 +43,13 @@ class OrTermination(BaseTermination):
         self.conditions = conditions
 
     def __call__(self, 
-            iteration: int | None = None, 
-            results: List[Dict[str, Any]] | None = None, 
-            env: TaskEnvironment | None = None
+        iteration: int | None = None, 
+        input_items_dict: dict[str, list[list[dict[str, Any]]]] | None = None,
+        tool_calls_dict: dict[str, list[list[dict[str, Any]]]] | None = None,
+        output_dict: dict[str, list[Any]] | None = None,
+        env: TaskEnvironment | None = None
     ) -> bool:
-        return any(condition(iteration, results) for condition in self.conditions)
+        return any(condition(iteration, input_items_dict, tool_calls_dict, output_dict, env) for condition in self.conditions)
 
 class MaxIterationsTermination(BaseTermination):
     """Termination condition that is met when the maximum number of iterations is reached.
@@ -55,39 +60,37 @@ class MaxIterationsTermination(BaseTermination):
         self.max_iterations = max_iterations
 
     def __call__(self, 
-            iteration: int | None = None, 
-            results: List[Dict[str, Any]] | None = None, 
-            env: TaskEnvironment | None = None
+        iteration: int | None = None, 
+        input_items_dict: dict[str, list[list[dict[str, Any]]]] | None = None,
+        tool_calls_dict: dict[str, list[list[dict[str, Any]]]] | None = None,
+        output_dict: dict[str, list[Any]] | None = None,
+        env: TaskEnvironment | None = None
     ) -> bool:
+        if iteration is None:
+            raise ValueError("iteration must be provided for MaxIterationsTermination check")
         return iteration >= self.max_iterations
     
-class MessageTermination(BaseTermination):
-    """Termination condition that is met when a specific message is found in the final output.
+class PlannerExecutorMessageTerminiation(BaseTermination):
+    """
+    A termination condition based on specific messages in the planner-executor framework. It will terminate if a specified message is found in the latest output of the planner agent.
     """
     def __init__(self, termination_message: str):
         self.termination_message = termination_message
     
     def __call__(self, 
-            iteration: int | None = None, 
-            results: List[Dict[str, Any]] | None = None, 
-            env: TaskEnvironment | None = None
+        iteration: int | None = None, 
+        input_items_dict: dict[str, list[list[dict[str, Any]]]] | None = None,
+        tool_calls_dict: dict[str, list[list[dict[str, Any]]]] | None = None,
+        output_dict: dict[str, list[Any]] | None = None,
+        env: TaskEnvironment | None = None
     ) -> bool:
-        if results is None or not results:
-            return False
         
-        for item in results:
-            if item.get("role") == "assistant":
-                content = item.get("content")
-                if isinstance(content, str):
-                    if self.termination_message.lower() in content.lower():
-                        return True
-                elif isinstance(content, list):
-                    return any(
-                        item.get("type") == "output_text" 
-                        and self.termination_message.lower() in item.get("text", "").lower()
-                        for item in content
-                    )
-                    
+        if output_dict is None or "planner" not in output_dict:
+            raise ValueError("Output dictionary must contain 'planner' outputs for PlannerExecutorMessageTermination")
+        
+        latest_output = output_dict["planner"][-1]
+        if isinstance(latest_output, str) and self.termination_message in latest_output:
+            return True
         return False
     
 # class WebAgentTermination(BaseTermination):

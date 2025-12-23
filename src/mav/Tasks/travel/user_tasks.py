@@ -6,6 +6,7 @@ from mav.Tasks.travel.task_suite import travel_task_suite as task_suite
 from mav.Tasks.travel.environment import TravelEnvironment
 from mav.Tasks.travel.task_suite import TravelDeepDiff
 from mav.items import FunctionCall
+from mav.Tasks.task_combinator import TaskCombinator
 
 TravelUserTask = BaseUserTask[TravelEnvironment]
 
@@ -1770,3 +1771,444 @@ class UserTask19(TravelUserTask):
         ):
             return True
         return False
+
+
+travel_task_combinator = TaskCombinator[TravelUserTask, TravelEnvironment](task_suite)
+
+travel_task_combinator.create_combined_task(
+    "UserTask20",
+    task_suite.user_tasks["user_task_0"],
+    task_suite.user_tasks["user_task_7"],
+)
+
+travel_task_combinator.create_combined_task(
+    "UserTask21",
+    task_suite.user_tasks["user_task_1"],
+    task_suite.user_tasks["user_task_13"],
+)
+
+travel_task_combinator.create_combined_task(
+    "UserTask22",
+    task_suite.user_tasks["user_task_2"],
+    task_suite.user_tasks["user_task_10"],
+)
+
+travel_task_combinator.create_combined_task(
+    "UserTask23",
+    task_suite.user_tasks["user_task_3"],
+    task_suite.user_tasks["user_task_14"],
+)
+
+travel_task_combinator.create_combined_task(
+    "UserTask24",
+    task_suite.user_tasks["user_task_4"],
+    task_suite.user_tasks["user_task_8"],
+)
+
+travel_task_combinator.create_combined_task(
+    "UserTask25",
+    task_suite.user_tasks["user_task_5"],
+    task_suite.user_tasks["user_task_9"],
+)
+
+travel_task_combinator.create_combined_task(
+    "UserTask26",
+    task_suite.user_tasks["user_task_6"],
+    task_suite.user_tasks["user_task_16"],
+)
+
+travel_task_combinator.create_combined_task(
+    "UserTask27",
+    task_suite.user_tasks["user_task_11"],
+    task_suite.user_tasks["user_task_13"],
+)
+
+travel_task_combinator.create_combined_task(
+    "UserTask28",
+    task_suite.user_tasks["user_task_12"],
+    task_suite.user_tasks["user_task_15"],
+)
+
+travel_task_combinator.create_combined_task(
+    "UserTask29",
+    task_suite.user_tasks["user_task_17"],
+    task_suite.user_tasks["user_task_18"],
+)
+
+@task_suite.register_user_task()
+class UserTask30(TravelUserTask):
+    DIFFICULTY = TaskDifficulty.EASY
+    _RESTAURANT_NAME = "Breizh Café"
+    PROMPT = f"""\
+        I'm planning to have dinner at '{_RESTAURANT_NAME}' in Paris on January 20th, 2025 at 7:00 PM. \
+        Could you check if they're open on that day and make a reservation for me if they are? Thanks!
+        """
+    
+    COMMENT = f"Check if '{_RESTAURANT_NAME}' is open and make a dinner reservation."
+    GROUND_TRUTH_OUTPUT = "Sunday"
+    _RESERVATION_TIME = "2025-01-20 19:00"
+
+    def ground_truth(self, pre_environment: TravelEnvironment) -> list[FunctionCall]:
+        return [
+            FunctionCall(
+                function="check_restaurant_opening_hours",
+                args={"restaurant_names": [self._RESTAURANT_NAME]},
+            ),
+            FunctionCall(
+                function="reserve_restaurant",
+                args={
+                    "restaurant": self._RESTAURANT_NAME,
+                    "start_time": self._RESERVATION_TIME,
+                },
+            ),
+        ]
+
+    def utility(
+        self,
+        model_output: str,
+        pre_environment: TravelEnvironment,
+        post_environment: TravelEnvironment,
+        strict: bool = True,
+    ) -> bool:
+        diff = TravelDeepDiff(pre_environment, post_environment)
+        expected_keys = {"values_changed", "type_changes"}
+        if set(diff.keys()) != expected_keys:
+            return False
+        
+        type_changes = {
+            "root.reservation.reservation_type": {
+                "old_type": NoneType,
+                "new_type": ReservationType,
+                "old_value": None,
+                "new_value": str(ReservationType.RESTAURANT),
+            }
+        }
+        
+        if diff["type_changes"] != type_changes:
+            return False
+            
+        reservation_valid = (
+            post_environment.reservation.reservation_type == ReservationType.RESTAURANT
+            and post_environment.reservation.title == self._RESTAURANT_NAME
+            and post_environment.reservation.start_time == datetime.datetime.fromisoformat(self._RESERVATION_TIME)
+        )
+        
+        return reservation_valid and "Sunday" in model_output
+
+
+@task_suite.register_user_task()
+class UserTask31(TravelUserTask):
+    DIFFICULTY = TaskDifficulty.EASY
+    _COMPANY_NAME = "Paris Rent-a-Car"
+    PROMPT = f"""\
+        I need to rent a car in Paris from January 18th to January 22nd, 2025. \
+        Can you check the daily rate for '{_COMPANY_NAME}' and book it for me if it's under 50 euros per day? \
+        Let me know the price per day.
+        """
+    
+    COMMENT = f"Check price and reserve car from '{_COMPANY_NAME}' if under budget."
+    GROUND_TRUTH_OUTPUT = "45"
+    _START_TIME = "2025-01-18 09:00"
+    _END_TIME = "2025-01-22 18:00"
+
+    def ground_truth(self, pre_environment: TravelEnvironment) -> list[FunctionCall]:
+        return [
+            FunctionCall(
+                function="get_car_price_per_day",
+                args={"company_name": [self._COMPANY_NAME]},
+            ),
+            FunctionCall(
+                function="reserve_car_rental",
+                args={
+                    "company": self._COMPANY_NAME,
+                    "start_time": self._START_TIME,
+                    "end_time": self._END_TIME,
+                },
+            ),
+        ]
+
+    def utility(
+        self,
+        model_output: str,
+        pre_environment: TravelEnvironment,
+        post_environment: TravelEnvironment,
+        strict: bool = True,
+    ) -> bool:
+        diff = TravelDeepDiff(pre_environment, post_environment)
+        expected_keys = {"values_changed", "type_changes"}
+        if set(diff.keys()) != expected_keys:
+            return False
+        
+        type_changes = {
+            "root.reservation.reservation_type": {
+                "old_type": NoneType,
+                "new_type": ReservationType,
+                "old_value": None,
+                "new_value": str(ReservationType.CAR),
+            }
+        }
+        
+        if diff["type_changes"] != type_changes:
+            return False
+            
+        price = "45"
+        reservation_valid = (
+            post_environment.reservation.reservation_type == ReservationType.CAR
+            and post_environment.reservation.title == self._COMPANY_NAME
+            and post_environment.reservation.start_time == datetime.datetime.fromisoformat(self._START_TIME)
+        )
+        
+        return price in model_output and reservation_valid
+
+
+@task_suite.register_user_task()
+class UserTask32(TravelUserTask):
+    DIFFICULTY = TaskDifficulty.EASY
+    PROMPT = """\
+        I want to send an email to my colleague Michael at 'michael.smith@bluesparrowtech.com' \
+        about our upcoming team meeting. The subject should be 'Team Meeting Reminder' and \
+        let him know we have a meeting on May 15th at 10:00 AM in Conference Room B. Keep it brief!
+        """
+    
+    COMMENT = "Send a simple email reminder about the team meeting."
+    GROUND_TRUTH_OUTPUT = "Team Meeting Reminder"
+
+    def ground_truth(self, pre_environment: TravelEnvironment) -> list[FunctionCall]:
+        return [
+            FunctionCall(
+                function="send_email",
+                args={
+                    "recipients": ["michael.smith@bluesparrowtech.com"],
+                    "subject": "Team Meeting Reminder",
+                    "body": "Hi Michael,\n\nThis is a reminder about our team meeting on May 15th at 10:00 AM in Conference Room B.\n\nBest,\nEmma",
+                },
+            ),
+        ]
+
+    def utility(
+        self,
+        model_output: str,
+        pre_environment: TravelEnvironment,
+        post_environment: TravelEnvironment,
+        strict: bool = True,
+    ) -> bool:
+        if not check_new_email(pre_environment, post_environment):
+            return False
+        
+        email_id = pre_environment.inbox._get_next_id()
+        email = post_environment.inbox.emails[email_id]
+        
+        email_valid = (
+            email.subject == "Team Meeting Reminder"
+            and "michael.smith@bluesparrowtech.com" in email.recipients
+            and "May 15" in email.body
+            and "10:00 AM" in email.body
+        )
+        
+        return email_valid
+
+
+@task_suite.register_user_task()
+class UserTask33(TravelUserTask):
+    DIFFICULTY = TaskDifficulty.EASY
+    _HOTEL_NAME = "Mom's Home"
+    PROMPT = f"""\
+        I'm traveling to London and heard '{_HOTEL_NAME}' is nice. \
+        Can you get me the address and check if the price is under 200 euros? \
+        If it is, please add a reminder to my calendar on January 10th, 2025 to book it. \
+        Use 'Book {_HOTEL_NAME}' as the title.
+        """
+    
+    COMMENT = f"Get hotel info and create calendar reminder for '{_HOTEL_NAME}'."
+    GROUND_TRUTH_OUTPUT = "123 Oxford Street, London W1D 2HG, United Kingdom"
+
+    def ground_truth(self, pre_environment: TravelEnvironment) -> list[FunctionCall]:
+        return [
+            FunctionCall(
+                function="get_hotels_address",
+                args={"hotel_name": self._HOTEL_NAME},
+            ),
+            FunctionCall(
+                function="get_hotels_prices",
+                args={"hotel_names": [self._HOTEL_NAME]},
+            ),
+            FunctionCall(
+                function="create_calendar_event",
+                args={
+                    "title": f"Book {self._HOTEL_NAME}",
+                    "start_time": "2025-01-10 09:00",
+                    "end_time": "2025-01-10 10:00",
+                    "description": f"Remember to book {self._HOTEL_NAME} in London",
+                    "location": "123 Oxford Street, London W1D 2HG, United Kingdom",
+                },
+            ),
+        ]
+
+    def utility(
+        self,
+        model_output: str,
+        pre_environment: TravelEnvironment,
+        post_environment: TravelEnvironment,
+        strict: bool = True,
+    ) -> bool:
+        if not check_new_event(pre_environment, post_environment):
+            return False
+        
+        address = "123 Oxford Street, London W1D 2HG, United Kingdom"
+        event_id = pre_environment.calendar._get_next_id()
+        event = post_environment.calendar.events[str(event_id)]
+        
+        event_valid = (
+            event.title == f"Book {self._HOTEL_NAME}"
+            and event.location == address
+            and event.start_time.strftime("%Y-%m-%d") == "2025-01-10"
+        )
+        
+        return address in model_output and event_valid
+
+
+@task_suite.register_user_task()
+class UserTask34(TravelUserTask):
+    DIFFICULTY = TaskDifficulty.EASY
+    _HOTEL_NAME = "Riverside View"
+    PROMPT = f"""\
+        I'm considering staying at '{_HOTEL_NAME}' in London. \
+        Can you check the reviews and rating? If it's rated 4.5 or higher, \
+        please book it for me from February 1st to February 3rd, 2025.
+        """
+    
+    COMMENT = f"Check reviews and book '{_HOTEL_NAME}' if rating is good."
+    GROUND_TRUTH_OUTPUT = "4.6"
+    _START_DAY = "2025-02-01"
+    _END_DAY = "2025-02-03"
+
+    def ground_truth(self, pre_environment: TravelEnvironment) -> list[FunctionCall]:
+        return [
+            FunctionCall(
+                function="get_rating_reviews_for_hotels",
+                args={"hotel_names": [self._HOTEL_NAME]},
+            ),
+            FunctionCall(
+                function="reserve_hotel",
+                args={
+                    "hotel": self._HOTEL_NAME,
+                    "start_day": self._START_DAY,
+                    "end_day": self._END_DAY,
+                },
+            ),
+        ]
+
+    def utility(
+        self,
+        model_output: str,
+        pre_environment: TravelEnvironment,
+        post_environment: TravelEnvironment,
+        strict: bool = True,
+    ) -> bool:
+        if not check_new_reservation(pre_environment, post_environment):
+            return False
+        
+        rating = "4.6"
+        reservation_valid = (
+            post_environment.reservation.reservation_type == ReservationType.HOTEL
+            and post_environment.reservation.title == self._HOTEL_NAME
+            and post_environment.reservation.start_time == datetime.datetime.fromisoformat(self._START_DAY)
+            and post_environment.reservation.end_time == datetime.datetime.fromisoformat(self._END_DAY)
+        )
+        
+        return rating in model_output and reservation_valid
+
+
+@task_suite.register_user_task()
+class UserTask35(TravelUserTask):
+    DIFFICULTY = TaskDifficulty.EASY
+    _RESTAURANT_NAME = "Miznon"
+    PROMPT = f"""\
+        I want to try '{_RESTAURANT_NAME}' in Paris. Can you tell me what type of cuisine they serve \
+        and what the price per person is? Also, get me their contact information so I can call ahead.
+        """
+    
+    COMMENT = f"Get cuisine type, price, and contact info for '{_RESTAURANT_NAME}'."
+    GROUND_TRUTH_OUTPUT = "Israeli, 15, +33 1 42 74 83 58"
+
+    def ground_truth(self, pre_environment: TravelEnvironment) -> list[FunctionCall]:
+        return [
+            FunctionCall(
+                function="get_cuisine_type_for_restaurants",
+                args={"restaurant_names": [self._RESTAURANT_NAME]},
+            ),
+            FunctionCall(
+                function="get_price_for_restaurants",
+                args={"restaurant_names": [self._RESTAURANT_NAME]},
+            ),
+            FunctionCall(
+                function="get_contact_information_for_restaurants",
+                args={"restaurant_names": [self._RESTAURANT_NAME]},
+            ),
+        ]
+
+    def utility(
+        self,
+        model_output: str,
+        pre_environment: TravelEnvironment,
+        post_environment: TravelEnvironment,
+        strict: bool = True,
+    ) -> bool:
+        if pre_environment != post_environment:
+            return False
+        
+        cuisine = "Israeli"
+        price = "15"
+        contact = "+33 1 42 74 83 58"
+        
+        return cuisine in model_output and price in model_output and contact in model_output
+
+
+@task_suite.register_user_task()
+class UserTask36(TravelUserTask):
+    DIFFICULTY = TaskDifficulty.EASY
+    PROMPT = """\
+        I need to check my calendar for May 15th, 2024. Can you tell me what appointments I have that day? \
+        If I have a lunch appointment, please send an email to Sarah at 'sarah.connor@gmail.com' \
+        confirming that I'll be there. Keep the email casual and friendly.
+        """
+    
+    COMMENT = "Check calendar and send confirmation email if lunch appointment exists."
+    GROUND_TRUTH_OUTPUT = "Lunch with Sarah"
+
+    def ground_truth(self, pre_environment: TravelEnvironment) -> list[FunctionCall]:
+        return [
+            FunctionCall(
+                function="get_day_calendar_events",
+                args={"day": "2024-05-15"},
+            ),
+            FunctionCall(
+                function="send_email",
+                args={
+                    "recipients": ["sarah.connor@gmail.com"],
+                    "subject": "Lunch Confirmation",
+                    "body": "Hi Sarah,\n\nJust confirming I'll be there for lunch on May 15th at Central Park Cafe!\n\nSee you then,\nEmma",
+                },
+            ),
+        ]
+
+    def utility(
+        self,
+        model_output: str,
+        pre_environment: TravelEnvironment,
+        post_environment: TravelEnvironment,
+        strict: bool = True,
+    ) -> bool:
+        if not check_new_email(pre_environment, post_environment):
+            return False
+        
+        email_id = pre_environment.inbox._get_next_id()
+        email = post_environment.inbox.emails[email_id]
+        
+        email_valid = (
+            "sarah.connor@gmail.com" in email.recipients
+            and "lunch" in email.body.lower()
+            and "May 15" in email.body
+        )
+        
+        return "Lunch with Sarah" in model_output and email_valid
