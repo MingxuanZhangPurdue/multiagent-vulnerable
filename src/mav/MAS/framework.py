@@ -327,6 +327,8 @@ async def run_planner_executor(
 
             iteration += 1
 
+        logger.info("planner_executor MAS run completed.")
+
         return MASRunResult(
             final_output=MAS_final_output,
             usage_dict=usage_dict,
