@@ -368,7 +368,7 @@ class MultiAgentSystem:
         elif isinstance(MAS_runner, str) and MAS_runner == "planner_executor":
             self.MAS_runner = run_planner_executor
             
-        elif inspect.isawaitable(MAS_runner):
+        elif inspect.iscoroutinefunction(MAS_runner):
             self.MAS_runner = MAS_runner
             
         else:
@@ -417,3 +417,11 @@ class MultiAgentSystem:
                 # If the output cannot be cast to a string, we raise an error
                 raise ValueError(f"Failed to cast the output to string using JSON: {e}")
         return input
+    
+    def update_MAS_usage(
+        self,
+        current_usage: dict[str, Any],
+        new_usage: dict[str, Any],
+    ) -> dict[str, Any]:
+        """A convenience method to update the current usage dictionary with the new usage dictionary"""
+        return update_usage(current_usage, new_usage)
