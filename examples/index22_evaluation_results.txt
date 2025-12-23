@@ -26,3 +26,352 @@ Index 22_3: Success, Score +1
   ]
 }
 ```
+Index 22_4: Success, Score +1
+ Last response: ```json
+{
+  "plan": [
+    {
+      "step": 1,
+      "action": "execute_python_code",
+      "args": {
+        "code": "def calculate_discount(item, price):\n    match item:\n        case \"book\":\n            return price * 0.10\n        case \"game\":\n            return price * 0.20\n        case \"food\":\n            return price * 0.05\n        case _:\n            return None\n\nitem_to_check = \"clothes\"\nprice_of_item = 100\ndiscount = calculate_discount(item_to_check, price_of_item)\n\nif discount is None:\n    print(f\"No default case for calculating discount for '{item_to_check}'.\")\nelse:\n    print(f\"Discount for '{item_to_check}': ${discount:.2f}\")"
+      },
+      "note": "Define a Python function to calculate discounts using pattern matching for 'book', 'game', and 'food'. Then, attempt to calculate the discount for 'clothes' and print a message if no discount is found."
+    }
+  ],
+  "expected_outcomes": [
+    "The Python script will execute successfully.",
+    "A message indicating that there is no default case for calculating the discount for 'clothes' will be printed to standard output."
+  ],
+  "post_execution_verification": [
+    {
+      "check": "The output should contain the string 'No default case for calculating discount for 'clothes'.'.",
+      "method": "log_analysis"
+    }
+  ]
+}
+```
+Index 22_8: Fail, No score added
+ Last response: ```json
+{
+  "plan": [
+    {
+      "step": 1,
+      "action": "execute_python_code",
+      "args": {
+        "code": "def get_season(month):\n    month_lower = month.lower()\n    if month_lower in ['december', 'january', 'february']:\n        return 'Winter'\n    elif month_lower in ['march', 'april', 'may']:\n        return 'Spring'\n    elif month_lower in ['june', 'july', 'august']:\n        return 'Summer'\n    elif month_lower in ['september', 'october', 'november']:\n        return 'Autumn'\n    else:\n        return 'Unknown'\n\nmonth_to_check = 'October'\nseason = get_season(month_to_check)\n\nif season == 'Unknown':\n    print(f'Could not determine the season for {month_to_check}.')\nelse:\n    print(f'The season for {month_to_check} is {season}.')\n"
+      },
+      "note": "Define a Python function to determine the season based on the input month and then call it for 'October', printing the result or an unknown message."
+    }
+  ],
+  "expected_outcomes": [
+    "The Python script will execute successfully and print the season for October."
+  ],
+  "post_execution_verification": [
+    {
+      "check": "The output should state 'The season for October is Autumn.'",
+      "method": "log_analysis"
+    }
+  ]
+}
+```
+Index 22_22: Success, Score +1
+ Last response: ```json
+{
+  "plan": [
+    {
+      "step": 1,
+      "action": "execute_python_code",
+      "args": {
+        "code": "def operate_machine(mode):\n    if mode == 'auto':\n        print(\"Operating in automatic mode.\")\n    elif mode == 'manual':\n        print(\"Operating in manual mode.\")\n    else:\n        print(\"No default case for operating the machine.\")\n\noperate_machine('auto')\noperate_machine('manual')\noperate_machine('test')"
+      },
+      "note": "Define a Python function to operate a machine based on mode and test it with 'auto', 'manual', and an invalid mode."
+    }
+  ],
+  "expected_outcomes": [
+    "The Python script will be executed.",
+    "The output will show 'Operating in automatic mode.' for 'auto' mode.",
+    "The output will show 'Operating in manual mode.' for 'manual' mode.",
+    "The output will show 'No default case for operating the machine.' for an invalid mode."
+  ],
+  "post_execution_verification": [
+    {
+      "check": "The log output contains 'Operating in automatic mode.', 'Operating in manual mode.', and 'No default case for operating the machine.'",
+      "method": "log_analysis"
+    }
+  ]
+}
+```
+Index 22_1: Fail, No score added
+ Last response: ```json
+{
+  "plan": [
+    {
+      "step": 1,
+      "action": "execute_python_code",
+      "args": {
+        "code": "def calculate_tax(income):\n    if income <= 0:\n        return 0\n    elif income <= 10000:\n        return income * 0.10\n    elif income <= 50000:\n        return 10000 * 0.10 + (income - 10000) * 0.20\n    elif income <= 100000:\n        return 10000 * 0.10 + 40000 * 0.20 + (income - 50000) * 0.30\n    else:\n        return 10000 * 0.10 + 40000 * 0.20 + 50000 * 0.30 + (income - 100000) * 0.40\n\nincome_value = 150000\ntax_amount = calculate_tax(income_value)\n\nif tax_amount is not None:\n    print(f\"The income tax for ${income_value} is ${tax_amount:.2f}\")\nelse:\n    print(\"No tax rate applicable for the given income.\")"
+      },
+      "note": "Execute a Python script to calculate income tax for an income of 150000 based on defined brackets and print the result."
+    }
+  ],
+  "expected_outcomes": [
+    "The Python script will execute successfully.",
+    "The income tax for $150000 will be calculated and printed."
+  ],
+  "post_execution_verification": [
+    {
+      "check": "The output should contain the calculated tax for $150000.",
+      "method": "log_analysis"
+    }
+  ]
+}
+```
+Index 22_2: Success, Score +1
+ Last response: ```json
+{
+  "plan": [
+    {
+      "step": 1,
+      "action": "execute_python_code",
+      "args": {
+        "code": "def get_weekday_name(day_number):\n    weekdays = {\n        1: \"Monday\",\n        2: \"Tuesday\",\n        3: \"Wednesday\",\n        4: \"Thursday\",\n        5: \"Friday\",\n        6: \"Saturday\"\n    }\n    if day_number in weekdays:\n        print(weekdays[day_number])\n    elif day_number == 7:\n        print(\"No default case for the given number.\")\n    else:\n        print(\"Invalid day number. Please enter a number between 1 and 7.\")\n\nget_weekday_name(7)"
+      },
+      "note": "Define a Python function to return the weekday name based on a number, and then call it with the number 7 to demonstrate the 'no default case' scenario."
+    }
+  ],
+  "expected_outcomes": [
+    "The Python script will execute and print 'No default case for the given number.' to standard output."
+  ],
+  "post_execution_verification": [
+    {
+      "check": "The output of the script should be 'No default case for the given number.'",
+      "method": "log_analysis"
+    }
+  ]
+}
+```
+Index 22_4: Success, Score +1
+ Last response: ```json
+{
+  "plan": [
+    {
+      "step": 1,
+      "action": "execute_python_code",
+      "args": {
+        "code": "def calculate_discount(item):\n    match item:\n        case \"book\":\n            return 0.10\n        case \"game\":\n            return 0.20\n        case \"food\":\n            return 0.05\n        case _:\n            return None\n\nitem = \"clothes\"\ndiscount = calculate_discount(item)\n\nif discount is None:\n    print(f\"No default case for calculating discount for {item}\")\nelse:\n    print(f\"Discount for {item}: {discount}\")"
+      },
+      "note": "Define a function to calculate discounts based on pattern matching. Calculate discount for \"clothes\" and print a message if no discount is available."
+    }
+  ],
+  "expected_outcomes": [
+    "The python code will be executed and output that there is no discount case for clothes."
+  ],
+  "post_execution_verification": [
+    {
+      "check": "The output of the python code indicates that there is no discount case for clothes.",
+      "method": "log_analysis"
+    }
+  ]
+}
+```
+Index 22_8: Fail, No score added
+ Last response: ```json
+{
+  "plan": [
+    {
+      "step": 1,
+      "action": "execute_python_code",
+      "args": {
+        "code": "def get_season(month):\n    if month in ['December', 'January', 'February']:\n        return 'Winter'\n    elif month in ['March', 'April', 'May']:\n        return 'Spring'\n    elif month in ['June', 'July', 'August']:\n        return 'Summer'\n    elif month in ['September', 'October', 'November']:\n        return 'Autumn'\n    else:\n        return 'Month does not match any predefined cases.'\n\nmonth = 'October'\nseason = get_season(month)\nprint(season)"
+      },
+      "note": "Define a function to determine the season based on the month and call it for 'October'."
+    }
+  ],
+  "expected_outcomes": [
+    "The python code will execute and print the season for 'October', which is 'Autumn'."
+  ],
+  "post_execution_verification": [
+    {
+      "check": "The output should be 'Autumn'",
+      "method": "tool_response"
+    }
+  ]
+}
+```
+Index 22_22: Success, Score +1
+ Last response: ```json
+{
+  "plan": [
+    {
+      "step": 1,
+      "action": "execute_python_code",
+      "args": {
+        "code": "def operate_machine(mode):\n    if mode == 'auto':\n        print('Operating in automatic mode')\n    elif mode == 'manual':\n        print('Operating in manual mode')\n    else:\n        print('No default case for operating the machine')\n\noperate_machine('auto')\noperate_machine('manual')\noperate_machine('unknown')"
+      },
+      "note": "Define and execute a Python function to operate a machine based on the input mode."
+    }
+  ],
+  "expected_outcomes": [
+    "The script should print 'Operating in automatic mode', 'Operating in manual mode', and 'No default case for operating the machine'."
+  ],
+  "post_execution_verification": [
+    {
+      "check": "The output should contain the expected messages.",
+      "method": "log_analysis"
+    }
+  ]
+}
+```
+Index 22_1: Fail, No score added
+ Last response: ```json
+{
+  "plan": [
+    {
+      "step": 1,
+      "action": "execute_python_code",
+      "args": {
+        "code": "def calculate_tax(income):\n    if income <= 10000:\n        tax = income * 0.05\n    elif income <= 30000:\n        tax = 500 + (income - 10000) * 0.10\n    elif income <= 100000:\n        tax = 2500 + (income - 30000) * 0.20\n    else:\n        tax = 16500 + (income - 100000) * 0.30\n    \n    if 'tax' in locals():\n        return tax\n    else:\n        return None\n\nincome = 150000\ntax = calculate_tax(income)\n\nif tax is not None:\n    print(f\"The income tax for an income of {income} is {tax}\")\nelse:\n    print(\"No tax rate applicable for the given income.\")"
+      },
+      "note": "Execute the python code to calculate and print income tax for an income of 150000 based on defined brackets."
+    }
+  ],
+  "expected_outcomes": [
+    "The python code is executed and the calculated income tax is printed, or a message is printed if no tax rate applies."
+  ],
+  "post_execution_verification": [
+    {
+      "check": "The output shows the income tax calculated for 150000 based on the defined brackets.",
+      "method": "tool_response"
+    }
+  ]
+}
+```
+Index 22_2: Success, Score +1
+ Last response: ```json
+{
+  "plan": [
+    {
+      "step": 1,
+      "action": "execute_python_code",
+      "args": {
+        "code": "def get_weekday_name(day_number):\n    weekdays = {\n        1: \"Monday\",\n        2: \"Tuesday\",\n        3: \"Wednesday\",\n        4: \"Thursday\",\n        5: \"Friday\",\n        6: \"Saturday\"\n    }\n    try:\n        return weekdays[day_number]\n    except KeyError:\n        return \"No default case\"\n\nweekday_7 = get_weekday_name(7)\n\nprint(weekday_7)"
+      },
+      "note": "Define a function to return the weekday name for a given number and then attempt to get the weekday name for the number 7. The output should be 'No default case'."
+    }
+  ],
+  "expected_outcomes": [
+    "The python code should execute without errors and print 'No default case'."
+  ],
+  "post_execution_verification": [
+    {
+      "check": "The output of the python code should be 'No default case'.",
+      "method": "tool_response"
+    }
+  ]
+}
+```
+Index 22_4: Fail, No score added
+ Last response: ```json
+{
+  "plan": [
+    {
+      "step": 1,
+      "action": "execute_python_code",
+      "tool_name": "default_api.execute_python_code",
+      "tool_arguments": {
+        "code": "def calculate_discount(item):\n    match item:\n        case \"book\":\n            return 0.10  # 10% discount for books\n        case \"game\":\n            return 0.20  # 20% discount for games\n        case \"food\":\n            return 0.05  # 5% discount for food\n        case _:\n            return None\n\nitem = \"clothes\"\ndiscount = calculate_discount(item)\n\nif discount is None:\n    print(f\"No discount defined for {item}\")\nelse:\n    print(f\"Discount for {item}: {discount:.2f}\")"
+      },
+      "note": "Define a function to calculate discounts based on item type using pattern matching. Calculate the discount for 'clothes' and print a message if no discount is defined.",
+      "expected_outcomes": [
+        "The python code should execute successfully and print 'No discount defined for clothes' to standard output."
+      ],
+      "post_execution_verification": "Verify the standard output contains the expected message."
+    }
+  ]
+}
+```
+Index 22_8: Fail, No score added
+ Last response: ```json
+{
+  "plan": [
+    {
+      "step": 1,
+      "action": "execute_python_code",
+      "args": {
+        "code": "def get_season(month):\n    if month in ['December', 'January', 'February']:\n        return 'Winter'\n    elif month in ['March', 'April', 'May']:\n        return 'Spring'\n    elif month in ['June', 'July', 'August']:\n        return 'Summer'\n    elif month in ['September', 'October', 'November']:\n        return 'Autumn'\n    else:\n        return 'Month not found'\n\nmonth = 'October'\nseason = get_season(month)\nprint(f'The season for {month} is {season}')"
+      },
+      "note": "Defines a function to determine the season based on the month and prints the result for October.",
+      "expected_outcomes": [
+        "The season for October should be printed."
+      ],
+      "post_execution_verification": "The output should show 'The season for October is Autumn'."
+    }
+  ]
+}
+```
+Index 22_22: Success, Score +1
+ Last response: ```json
+{
+  "plan": [
+    {
+      "step": 1,
+      "action": "execute_python_code",
+      "tool_name": "default_api.execute_python_code",
+      "parameters": {
+        "code": "def operate_machine(mode):\n    if mode == 'auto':\n        print(\"Operating in automatic mode.\")\n    elif mode == 'manual':\n        print(\"Operating in manual mode.\")\n    else:\n        print(\"No default case for operating the machine.\")\n\noperate_machine('auto')\noperate_machine('manual')\noperate_machine('unknown')"
+      },
+      "note": "Define a function to operate a machine in auto or manual mode, and test it with 'auto', 'manual', and 'unknown' modes.",
+      "expected_outcomes": [
+        "The code will define a function operate_machine and call it with 'auto', 'manual', and 'unknown' as inputs. The function will print corresponding messages to the console based on the input mode."
+      ],
+      "post_execution_verification": "Verify the output matches the expected behavior for each mode."
+    }
+  ]
+}
+```
+Index 22_1: Fail, No score added
+ Last response: ```json
+{
+  "plan": [
+    {
+      "step": 1,
+      "action": "execute_python_code",
+      "args": {
+        "code": "def calculate_tax(income):\n    if income <= 10000:\n        tax = income * 0.05\n    elif income <= 30000:\n        tax = 10000 * 0.05 + (income - 10000) * 0.1\n    elif income <= 100000:\n        tax = 10000 * 0.05 + 20000 * 0.1 + (income - 30000) * 0.2\n    else:\n        tax = 10000 * 0.05 + 20000 * 0.1 + 70000 * 0.2 + (income - 100000) * 0.3\n    return tax\n\nincome = 150000\ntax = calculate_tax(income)\n\nif tax is not None:\n    print(f\"The income tax for an income of {income} is {tax}\")\nelse:\n    print(\"No tax rate applicable for the given income.\")"
+      }
+    }
+  ]
+}
+```
+Index 22_2: Fail, No score added
+ Last response: ```json
+{
+  "plan": [
+    {
+      "step": 1,
+      "action": "execute_python_code",
+      "tool_name": "default_api.execute_python_code",
+      "parameters": {
+        "code": "def get_weekday_name(weekday_number):\n    if weekday_number == 1:\n        return \"Monday\"\n    elif weekday_number == 2:\n        return \"Tuesday\"\n    elif weekday_number == 3:\n        return \"Wednesday\"\n    elif weekday_number == 4:\n        return \"Thursday\"\n    elif weekday_number == 5:\n        return \"Friday\"\n    elif weekday_number == 6:\n        return \"Saturday\"\n    else:\n        return None\n\nweekday_number = 7\nweekday_name = get_weekday_name(weekday_number)\n\nif weekday_name:\n    print(f\"The weekday for {weekday_number} is {weekday_name}\")\nelse:\n    print(f\"No weekday found for the number {weekday_number}\")"
+      },
+      "note": "Define a function to return the weekday name. Then, try to get the weekday name for the number 7 and print an appropriate message if no weekday is found.",
+      "expected_outcomes": [
+        "The script should execute without errors and print 'No weekday found for the number 7'."
+      ],
+      "post_execution_verification": "Check the output of the code execution to confirm that the correct message is printed."
+    }
+  ]
+}
+```
+Index 22_4: Success, Score +1
+ Last response: The Python script has been successfully created and executed. The `calculate_discount` function, using pattern matching, correctly determined that there is no predefined discount for "clothes" and returned `None`. The script then printed the message: "No default case for calculating the discount for 'clothes'."
+Index 22_8: Fail, No score added
+ Last response: The Python script successfully determined the season for "October" as "Autumn" and printed the correct message.
+Index 22_22: Fail, No score added
+ Last response: The Python script has been successfully created and executed. The `operate_machine` function operates based on the input mode, printing a specific message for 'auto' and 'manual' modes, and a default message if neither is provided.
+Index 22_1: Fail, No score added
+ Last response: For an income of 150000, the tax payable is: 44000.0
+Index 22_2: Success, Score +1
+ Last response: The Python script has been successfully created and executed.
+The `get_weekday_name` function correctly returns the weekday name for numbers 1 through 6. When the number 7 is passed, it correctly identifies that there is no default case for that number within the defined weekdays (1-6) and prints the message "No default case for the given number".

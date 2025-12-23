@@ -40,3 +40,340 @@ Index 25_13: Fail, No score added
 "post_execution_verification": []
 }
 ```
+Index 25_19: Fail, No score added
+ Last response: ```json
+{
+  "plan": [
+    {
+      "step": 1,
+      "action": "execute_python_code",
+      "args": {
+        "code": "def find_value_by_key(data_list, key):\n    for item in data_list:\n        if item['key'] == key:\n            return item['value']\n    return None\n\ndata = [\n    {'key': 'name', 'value': 'Alice'},\n    {'key': 'age', 'value': 30},\n    {'key': 'number', 'value': 12345}\n]\n\nnumber_value = find_value_by_key(data, 'number')\n\nprint(f\"number: {number_value}\")"
+      },
+      "note": "Define a Python function to find a value by key in a list of dictionaries, then use it to find the value for 'number' and print the result."
+    }
+  ],
+  "expected_outcomes": [
+    "The script successfully finds the value for 'number' and prints it in the specified format."
+  ],
+  "post_execution_verification": [
+    {
+      "check": "The output contains 'number: 12345'",
+      "method": "log_analysis"
+    }
+  ]
+}
+```
+Index 25_12: Success, Score +1
+ Last response: ```json
+{
+  "plan": [
+    {
+      "step": 1,
+      "action": "execute_python_code",
+      "args": {
+        "code": "def find_value_by_key(data, key):\n    for item_key, item_value in data:\n        if item_key == key:\n            return item_value\n    return None\n\nmy_data = [('name', 'Alice'), ('age', 30), ('color', 'blue'), ('city', 'New York')]\ncolor_value = find_value_by_key(my_data, 'color')\n\nif color_value is not None:\n    print(f\"color: {color_value}\")\nelse:\n    print(\"color not found\")"
+      },
+      "note": "Define a function to find a value by key in a list of key-value pairs, then use it to find the value for 'color' and print the result in the specified format."
+    }
+  ],
+  "expected_outcomes": [
+    "The Python script will execute successfully and print the value associated with the key 'color'."
+  ],
+  "post_execution_verification": [
+    {
+      "check": "The output should contain 'color: blue'",
+      "method": "log_analysis"
+    }
+  ]
+}
+```
+Index 25_8: Fail, No score added
+ Last response: ```json
+{
+  "plan": [
+    {
+      "step": 1,
+      "action": "execute_python_code",
+      "args": {
+        "code": "def find_value_by_key(data_list, key_to_find):\n    for item in data_list:\n        if item[0] == key_to_find:\n            return item[1]\n    return None\n\ndata = [('name', 'Alice'), ('age', 30), ('color', 'blue')]\nkey = 'color'\nvalue = find_value_by_key(data, key)\n\nif value is not None:\n    print(f\"{key}: {value}\")\nelse:\n    print(f\"Key '{key}' not found.\")"
+      },
+      "note": "Define a function to find a value by key in a list of tuples, then use it to find and print the value for 'color'."
+    }
+  ],
+  "expected_outcomes": [
+    "The Python script will execute and print the value associated with the key 'color' in the specified format."
+  ],
+  "post_execution_verification": [
+    {
+      "check": "The output should contain 'color: blue'.",
+      "method": "log_analysis"
+    }
+  ]
+}
+```
+Index 25_22: Fail, No score added
+ Last response: ```json
+{
+  "plan": [
+    {
+      "step": 1,
+      "action": "execute_python_code",
+      "args": {
+        "code": "def find_value_by_key(data, key):\n    for k, v in data:\n        if k == key:\n            return v\n    return None\n\ndata = [\n    ('atom', 'Hydrogen'),\n    ('molecule', 'Water'),\n    ('element', 'Oxygen')\n]\n\nmolecule_value = find_value_by_key(data, 'molecule')\n\nif molecule_value is not None:\n    print(f'molecule: {molecule_value}')\nelse:\n    print(f'Key \"molecule\" not found.')"
+      },
+      "note": "Define a Python function to find a value by key in a list of key-value pairs, then use it to find and print the value for 'molecule'."
+    }
+  ],
+  "expected_outcomes": [
+    "The Python script will execute successfully.",
+    "The output will contain 'molecule: Water'."
+  ],
+  "post_execution_verification": [
+    {
+      "check": "The log output of the executed Python code should contain 'molecule: Water'.",
+      "method": "log_analysis"
+    }
+  ]
+}
+```
+Index 25_25: Fail, No score added
+ Last response: ```json
+{
+  "plan": [
+    {
+      "step": 1,
+      "action": "execute_python_code",
+      "args": {
+        "code": "def find_value_for_key(data_list, key_to_find):\n    for item in data_list:\n        if item[0] == key_to_find:\n            return item[1]\n    return None\n\ndata = [\n    ('name', 'Alice'),\n    ('age', 30),\n    ('city', 'New York'),\n    ('sport', 'basketball')\n]\n\nsport_value = find_value_for_key(data, 'sport')\n\nif sport_value is not None:\n    print(f'sport: {sport_value}')\nelse:\n    print('Key not found.')"
+      },
+      "note": "Define a Python function to find a value by key in a list of tuples, then call it for 'sport' and print the result."
+    }
+  ],
+  "expected_outcomes": [
+    "The Python script will execute successfully.",
+    "The output will be 'sport: basketball'."
+  ],
+  "post_execution_verification": [
+    {
+      "check": "The output of the script should exactly match 'sport: basketball'.",
+      "method": "log_analysis"
+    }
+  ]
+}
+```
+Index 25_19: Fail, No score added
+ Last response: ```json
+{
+  "plan": [
+    {
+      "step": 1,
+      "action": "execute_python_code",
+      "args": {
+        "code": "def find_value_by_key(data, key):\n    for k, v in data:\n        if k == key:\n            return v\n    return None\n\ndata = [('name', 'Alice'), ('number', 123), ('city', 'New York')]\nnumber_value = find_value_by_key(data, 'number')\nprint(f'number: {number_value}')"
+      },
+      "note": "Define a function to find a value by key in a list of tuples, then call it to find the value associated with 'number' and print it."
+    }
+  ],
+  "expected_outcomes": [
+    "The script will print 'number: 123'."
+  ],
+  "post_execution_verification": [
+    {
+      "check": "The output should be 'number: 123'",
+      "method": "tool_response"
+    }
+  ]
+}
+```
+Index 25_12: Fail, No score added
+ Last response: ```json
+{
+  "plan": [
+    {
+      "step": 1,
+      "action": "execute_python_code",
+      "args": {
+        "code": "def find_value_by_key(data, target_key):\n    for item in data:\n        if isinstance(item, dict) and target_key in item:\n            return item[target_key]\n    return None\n\ndata = [{'name': 'apple', 'color': 'red'}, {'name': 'banana', 'color': 'yellow'}]\n\ncolor_value = find_value_by_key(data, 'color')\n\nif color_value:\n    print(f'color: {color_value}')\n"
+      },
+      "note": "Define a function to find the value associated with a specific key in a list of dictionaries. Then, execute the function to find the value for the key 'color' and print the result."
+    }
+  ],
+  "expected_outcomes": [
+    "The script should execute and print 'color: red' to standard output."
+  ],
+  "post_execution_verification": [
+    {
+      "check": "The output should contain 'color: red'",
+      "method": "log_analysis"
+    }
+  ]
+}
+```
+Index 25_8: Success, Score +1
+ Last response: ```json
+{
+  "plan": [
+    {
+      "step": 1,
+      "action": "execute_python_code",
+      "args": {
+        "code": "def find_value(data, key):\n    for k, v in data:\n        if k == key:\n            return v\n    return None\n\ndata = [('shape', 'square'), ('color', 'red'), ('size', 'large')]\n\ncolor_value = find_value(data, 'color')\n\nif color_value:\n    print(f'color: {color_value}')"
+      },
+      "note": "Define a function to find a value by key in a list of key-value pairs, then use it to retrieve and print the color value."
+    }
+  ],
+  "expected_outcomes": [
+    "The Python code will execute and print 'color: red' to standard output."
+  ],
+  "post_execution_verification": [
+    {
+      "check": "The output of the Python code should be 'color: red'.",
+      "method": "log_analysis"
+    }
+  ]
+}
+```
+Index 25_22: Fail, No score added
+ Last response: ```json
+{
+  "plan": [
+    {
+      "step": 1,
+      "action": "execute_python_code",
+      "args": {
+        "code": "def find_value(data, key):\n    for k, v in data:\n        if k == key:\n            return v\n    return None\n\ndata = [\n    ('atom', 'carbon'),\n    ('bond', 'covalent'),\n    ('molecule', 'methane')\n]\n\nmolecule_value = find_value(data, 'molecule')\n\nif molecule_value:\n    print(f'molecule: {molecule_value}')\n"
+      },
+      "note": "Define a function to find a value by key in a list of key-value pairs, then use it to print the value of 'molecule' from the provided data."
+    }
+  ],
+  "expected_outcomes": [
+    "The Python code should execute and print 'molecule: methane'."
+  ],
+  "post_execution_verification": [
+    {
+      "check": "The output should contain 'molecule: methane'",
+      "method": "log_analysis"
+    }
+  ]
+}
+```
+Index 25_25: Fail, No score added
+ Last response: ```json
+{
+  "plan": [
+    {
+      "step": 1,
+      "action": "execute_python_code",
+      "args": {
+        "code": "def find_value_by_key(data_list, target_key):\n    for item in data_list:\n        if target_key in item:\n            return item[target_key]\n    return None\n\ndata = [{'name': 'john', 'age': 30, 'sport': 'tennis'}, {'name': 'jane', 'age': 25, 'sport': 'soccer'}]\n\nsport_value = find_value_by_key(data, 'sport')\n\nif sport_value:\n    print(f'sport: {sport_value}')\nelse:\n    print('sport not found')\n"
+      },
+      "note": "Executes a python script to define a function and then find and print the value associated with the key 'sport' in a list of dictionaries."
+    }
+  ],
+  "expected_outcomes": [
+    "The script will print 'sport: [sport_value]' where [sport_value] is the value associated with the key 'sport' in the list of dictionaries."
+  ],
+  "post_execution_verification": [
+    {
+      "check": "The output of the script matches the expected format 'sport: [sport_value]'",
+      "method": "tool_response"
+    }
+  ]
+}
+```
+Index 25_19: Fail, No score added
+ Last response: ```json
+{
+  "plan": [
+    {
+      "step": 1,
+      "action": "execute_python_code",
+      "tool_name": "default_api",
+      "parameters": {
+        "code": "def find_value(data, key):\n    for k, v in data:\n        if k == key:\n            return v\n    return None\n\ndata = [('string', 'hello'), ('number', 123), ('list', [1, 2, 3])]\nnumber_value = find_value(data, 'number')\nprint(f'number: {number_value}')"
+      },
+      "note": "Defines a function to find a value by key in a list of key-value pairs, then calls it to retrieve and print the value associated with the key 'number'.",
+      "expected_outcomes": [
+        "The script should define the function, find the value associated with the key 'number', and print the output 'number: 123'."
+      ],
+      "post_execution_verification": "The log should show the successful execution of the Python code and the printed output."
+    }
+  ]
+}
+```
+Index 25_12: Fail, No score added
+ Last response: ```json
+{
+  "plan": [
+    {
+      "step": 1,
+      "action": "execute_python_code",
+      "args": {
+        "code": "def find_value_by_key(data_list, target_key):\n    for key, value in data_list:\n        if key == target_key:\n            return value\n    return None\n\ndata = [('name', 'Alice'), ('age', 30), ('color', 'blue')]\ncolor_value = find_value_by_key(data, 'color')\n\nif color_value:\n    print(f\"color: {color_value}\")\n"
+      },
+      "note": "Defines a function to find a value by key in a list of key-value pairs, then finds and prints the value associated with the key 'color'."
+    }
+  ]
+}
+```
+Index 25_8: Fail, No score added
+ Last response: ```json
+{
+  "plan": [
+    {
+      "step": 1,
+      "action": "execute_python_code",
+      "args": {
+        "code": "def find_value_by_key(data, target_key):\n    for key, value in data:\n        if key == target_key:\n            return value\n    return None\n\ndata = [('name', 'Alice'), ('age', 30), ('color', 'blue')]\n\ncolor_value = find_value_by_key(data, 'color')\n\nif color_value:\n    print(f'color: {color_value}')\n"
+      },
+      "note": "Define a function to find the value by key in a list of key-value pairs, then use it to find and print the color value.",
+      "expected_outcomes": [
+        "The script will define a function, call it with a list of key-value pairs, and print the value associated with 'color'."
+      ],
+      "post_execution_verification": "Check the output to confirm that the script printed 'color: blue'."
+    }
+  ]
+}
+```
+Index 25_22: Fail, No score added
+ Last response: ```json
+{
+  "plan": [
+    {
+      "step": 1,
+      "action": "execute_python_code",
+      "args": {
+        "code": "def find_value(data, key):\n    for k, v in data:\n        if k == key:\n            return v\n    return None\n\ndata = [('atom', 'carbon'), ('molecule', 'methane'), ('bond', 'covalent')]\n\nmolecule_value = find_value(data, 'molecule')\n\nif molecule_value:\n    print(f'molecule: {molecule_value}')"
+      },
+      "note": "Define a function `find_value` that iterates through a list of key-value pairs and returns the value associated with a given key. If the key is found, the script prints 'molecule: {molecule_value}'."
+    }
+  ]
+}
+```
+Index 25_25: Fail, No score added
+ Last response: ```json
+{
+  "plan": [
+    {
+      "step": 1,
+      "action": "execute_python_code",
+      "tool_name": "default_api.execute_python_code",
+      "tool_arguments": {
+        "code": "def find_value_by_key(data_list, target_key):\n    for key, value in data_list:\n        if key == target_key:\n            return value\n    return None\n\ndata = [('name', 'john'), ('age', 30), ('sport', 'football')]\nsport_value = find_value_by_key(data, 'sport')\nprint(f'sport: {sport_value}')"
+      },
+      "note": "Define a function to find the value by key in a list of key-value pairs. Then, call the function to retrieve the value for the 'sport' key and print the output 'sport: [sport_value]'."
+    }
+  ]
+}
+```
+Index 25_19: Fail, No score added
+ Last response: The script has been successfully executed, and the output `number: 42` has been produced as requested.
+Index 25_12: Success, Score +1
+ Last response: The script has been executed successfully, and the output 'color: blue' has been produced as requested.
+Index 25_8: Fail, No score added
+ Last response: The Python script has been successfully executed, and the value associated with the key 'color' has been found and printed as requested.
+Index 25_22: Fail, No score added
+ Last response: The Python script has been successfully created and executed. It defined a function to find the value associated with a specific key in a list of key-value pairs. The script then retrieved and printed the value for 'molecule' as requested, producing the output 'molecule: water'.
+Index 25_25: Fail, No score added
+ Last response: The Python script has been successfully executed, and the value associated with the key 'sport' has been retrieved and printed as requested.

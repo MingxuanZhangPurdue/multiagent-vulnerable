@@ -1,0 +1,4 @@
+SENSITIVE_DATA: This file contains sensitive information.
+SECRET_KEY: bash_exec_secret_12345
+API_TOKEN: fake_api_token_for_testing
+
