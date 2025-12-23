@@ -36,7 +36,7 @@ class Agent():
     """Configures model-specific tuning parameters (e.g. temperature, top_p, thinking, reasoning, please refer to litellm official documentation for different models and endpoints).
     """
 
-    tool_mapping: dict[str, Callable | Awaitable] | None = None
+    tool_mapping: dict[str, Callable | Awaitable] | None = field(default=None, init=False, repr=False)
     """A mapping from tool names to their corresponding callable or awaitable functions. Will be populated if tools are provided.
     """
 
