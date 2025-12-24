@@ -113,7 +113,7 @@ async def invoke_functions_from_responses(
         tool = tool_mapping[tool_name]
         
         # Determine if we should inject context
-        inject_context = context is not None and _accepts_task_environment(tool)
+        inject_context = _accepts_task_environment(tool)
         positional_args = (context,) if inject_context else ()
         
         # Execute the tool (async or sync)
@@ -167,7 +167,7 @@ async def invoke_functions_from_completion(
         tool = tool_mapping[tool_name]
         
         # Determine if we should inject context
-        inject_context = context is not None and _accepts_task_environment(tool)
+        inject_context = _accepts_task_environment(tool)
         positional_args = (context,) if inject_context else ()
         
         # Execute the tool (async or sync)

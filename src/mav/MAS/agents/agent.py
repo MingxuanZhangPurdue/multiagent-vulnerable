@@ -60,7 +60,7 @@ class Agent():
             if not isinstance(self.tools, list):
                 raise TypeError(f"Agent tools must be a list of callable functions, awaitable functions, or FunctionTool instances, got {type(self.tools).__name__}")
             if not all(
-                callable(tool) or inspect.isawaitable(tool) or isinstance(tool, FunctionTool) for tool in self.tools
+                callable(tool) or isinstance(tool, FunctionTool) for tool in self.tools
             ):
                 raise TypeError("All tools must be callable or awaitable functions.")
             
@@ -152,7 +152,7 @@ class Agent():
                 when to use it.
         """
 
-        async def run_agent(context: TaskEnvironment | None = None, input: str = "") -> FunctionToolResult:
+        async def run_agent(context: TaskEnvironment, input: str) -> FunctionToolResult:
             from mav.MAS.agents import Runner, RunResult
 
             resolved_max_turns = max_turns if max_turns is not None else 10
