@@ -3,6 +3,7 @@ from mav.Tasks.task_suite import TaskSuite
 from typing import Sequence
 from tqdm import tqdm
 from mav.MAS.attack_hook import AttackHook
+from typing import Literal
 
 async def benchmark_suite(
     multi_agent_system: MultiAgentSystem,
@@ -37,7 +38,7 @@ async def benchmark_suite(
 
             suite_results[user_task.ID] = item
     else:
-         for user_task in tqdm(user_tasks_to_run, desc="Running User Tasks"):
+         for user_task in tqdm(user_tasks_to_run, desc="Running Attack Tasks"):
             utility, function_calls_match, result = await suite.run_attack_task_with_pipeline(
                 multi_agent_system=multi_agent_system,
                 user_task=user_task,
@@ -48,6 +49,7 @@ async def benchmark_suite(
                 "function_calls_match": function_calls_match,
                 "result": result
             }
+            print(suite_results[user_task.ID])
 
     return suite_results
 

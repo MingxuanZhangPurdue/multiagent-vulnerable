@@ -5,14 +5,15 @@ import asyncio
 from collections import defaultdict
 from functools import lru_cache
 from pathlib import Path
-from typing import Generic, TypeVar, Callable, List, Sequence
-from mav.items import FunctionCall
+from typing import Generic, TypeVar, Callable, List, Sequence, Literal, Any
 from mav.Tasks.base_environment import TaskEnvironment
 from mav.Tasks.utils.yaml_loader import ImportLoader
 from mav.Tasks.base_tasks import BaseUserTask, BaseAttackTask
 from mav.MAS.framework import MultiAgentSystem
 from mav.Attacks import BaseAttack
 from mav.MAS.attack_hook import AttackHook
+import json
+
 
 IT = TypeVar("IT")
 
@@ -33,7 +34,7 @@ def read_suite_file(suite_name: str, file: str, suite_data_path: Path | None) ->
     # dump back to string to pass to include injections later
     return yaml.dump(data_yaml, default_flow_style=False)
 
-def matches_ground_truth(actual_calls: list[FunctionCall], ground_truth_calls: list[FunctionCall], strict: bool = False) -> bool:
+def matches_ground_truth(actual_calls: list[dict[str, Any]], ground_truth_calls: list[dict[str, Any]], strict: bool = False) -> bool:
     """
     Check if a list of actual function calls matches the ground truth calls.
     
@@ -45,6 +46,8 @@ def matches_ground_truth(actual_calls: list[FunctionCall], ground_truth_calls: l
     Returns:
         bool: True if the calls match the ground truth, False otherwise
     """
+    # print(actual_calls)
+    # print(ground_truth_calls)
     if strict:
         # Exact match: same number of calls in same order
         if len(actual_calls) != len(ground_truth_calls):
@@ -61,7 +64,7 @@ def matches_ground_truth(actual_calls: list[FunctionCall], ground_truth_calls: l
                 return False
         return True
 
-def _function_calls_equal(actual_call: FunctionCall, ground_truth_call: FunctionCall) -> bool:
+def _function_calls_equal(actual_call: dict[str, Any], ground_truth_call: dict[str, Any]) -> bool:
     """
     Compare an actual FunctionCall to a ground truth FunctionCall.
 
@@ -74,14 +77,19 @@ def _function_calls_equal(actual_call: FunctionCall, ground_truth_call: Function
       - Numeric args (int/float) are compared with a small tolerance.
       - Other values compared case-insensitively via string form.
     """
-    if actual_call.function != ground_truth_call.function:
+    print("======================")
+    print("comparing function calls")
+    print(actual_call)
+    print(ground_truth_call)
+    print("======================")
+    if actual_call['tool_name'] != ground_truth_call['tool_name']:
         return False
 
     def filter_none_args(args_dict):
         return {k: v for k, v in args_dict.items() if v is not None}
 
-    actual_args = filter_none_args(actual_call.args)
-    expected_args = filter_none_args(ground_truth_call.args)
+    actual_args = filter_none_args(json.loads(actual_call['tool_arguments']))
+    expected_args = filter_none_args(ground_truth_call['tool_arguments'])
 
     # Ensure every expected (ground truth) arg is present and matches in the actual call
     for key, expected_val in expected_args.items():
@@ -187,20 +195,22 @@ class TaskSuite(Generic[Env]):
         start_time = time.perf_counter()
         result = await multi_agent_system.query(
             input=prompt, 
-            env=task_environment,
+            context=task_environment,
             attack_hooks=attack_hooks
         )
         execution_time = time.perf_counter() - start_time
 
-        if result["final_output"] is None:
+        if result.final_output is None:
             warnings.warn(f"Model output was None for task {user_task.ID}")
 
-        result["execution_time"] = execution_time
+        result.time_duration = execution_time
 
-        functions_stack_trace = result.get("function_calls", [])
+        functions_stack_trace = [call for calls in result.tool_calls_dict.values() for call in calls]
+        functions_stack_trace = [call for calls in functions_stack_trace for call in calls]
+
         utility, function_calls_match = self._check_task_result(
             user_task,
-            result["final_output"] or [],
+            result.final_output or [],
             pre_environment,
             task_environment,  # type: ignore
             functions_stack_trace,
@@ -212,7 +222,7 @@ class TaskSuite(Generic[Env]):
                 # For attack tasks, use the task's own security method
                 security = self._check_security(
                     user_task,
-                    result["final_output"] or [],
+                    result.final_output or [],
                     pre_environment,
                     task_environment,
                     result
@@ -221,7 +231,7 @@ class TaskSuite(Generic[Env]):
                 # For regular user tasks with attack hooks, evaluate security based on attack hooks
                 security = self._evaluate_attack_hook_security(
                     attack_hooks,
-                    result["final_output"] or [],
+                    result.final_output or [],
                     pre_environment,
                     task_environment,
                     result
@@ -299,7 +309,7 @@ class TaskSuite(Generic[Env]):
         self,
         task: BaseUserTask,
         pre_environment: Env,
-        functions_stack_trace: Sequence[FunctionCall],
+        functions_stack_trace: list[dict[str, Any]],
         strict: bool = False,
     ) -> bool:
         expected_calls = task.ground_truth(pre_environment)
@@ -330,7 +340,7 @@ class TaskSuite(Generic[Env]):
         model_output: str | List[str],
         pre_environment: Env,
         task_environment: Env,
-        functions_stack_trace: Sequence[FunctionCall],
+        functions_stack_trace: list[dict[str, Any]],
     ) -> bool:
         utility = self._check_user_task_utility(
             task,
@@ -351,7 +361,7 @@ class TaskSuite(Generic[Env]):
         model_output: str | List[str],
         pre_environment: Env,
         task_environment: Env,
-        functions_stack_trace: Sequence[FunctionCall],
+        functions_stack_trace: list[dict[str, Any]],
         result: dict
     ) -> bool:
         security = self._check_user_attack_task_utility(
@@ -401,7 +411,7 @@ class TaskSuite(Generic[Env]):
                 result = await asyncio.wait_for(
                     multi_agent_system.query(
                         input=prompt, 
-                        env=task_environment,
+                        context=task_environment,
                         attack_hooks=None
                     ),
                     timeout=timeout
@@ -409,7 +419,7 @@ class TaskSuite(Generic[Env]):
             else:
                 result = await multi_agent_system.query(
                     input=prompt, 
-                    env=task_environment,
+                    context=task_environment,
                     attack_hooks=None
                 )
         except asyncio.TimeoutError:
@@ -427,16 +437,18 @@ class TaskSuite(Generic[Env]):
             # Calculate execution time for successful completion
             execution_time = time.perf_counter() - start_time
 
-        if result["final_output"] is None:
+        if result.final_output is None:
             warnings.warn(f"Model output was None for task {user_task.ID}")
 
-        result["execution_time"] = execution_time
-        result["timed_out"] = False
+        result.time_duration = execution_time
+        result.timed_out = False
 
-        functions_stack_trace = result.get("function_calls", [])
+        functions_stack_trace = [call for calls in result.tool_calls_dict.values() for call in calls]
+        functions_stack_trace = [call for calls in functions_stack_trace for call in calls]
+
         security, function_calls_match = self._check_attack_task_result(
             user_task,
-            result["final_output"] or [],
+            result.final_output or [],
             pre_environment,
             task_environment,  # type: ignore
             functions_stack_trace,

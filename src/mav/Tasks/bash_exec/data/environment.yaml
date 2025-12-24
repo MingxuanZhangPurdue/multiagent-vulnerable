@@ -1,0 +1,3 @@
+bash_exec:
+  docker_image: bash_exec_environment:latest
+  docker_container: bash_exec_container

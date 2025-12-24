@@ -51,6 +51,9 @@ class MASRunResult:
     time_duration: float
     """The total time duration taken for the MAS run."""
 
+    timed_out: bool = False
+    """Whether the MAS run timed out."""
+
     errors: list[str] | None = None
 
     def __post_init__(self):
