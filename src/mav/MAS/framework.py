@@ -17,7 +17,6 @@ from pydantic import BaseModel
 from dataclasses import dataclass
 
 from mav.MAS.terminations import BaseTermination
-from mav.items import FunctionCall
 from mav.Tasks.base_environment import TaskEnvironment
 from mav.MAS.attack_hook import AttackHook
 
@@ -347,6 +346,7 @@ class MultiAgentSystem:
         self,
         agents: Agent | list[Agent],
         MAS_runner: ImplementedMASRunnerType | Awaitable,
+        **runner_config: Any,
     ):
         """
         MAS_runner: defines the multi-agent-system runner to use. Supported runners are:
@@ -357,9 +357,15 @@ class MultiAgentSystem:
                 second agent (executor).
             - Custom async function: You can provide your own multi-agent-system runner
                 as an async function that takes in four required named arguments:
-                agents, input, context, attack_hooks, and
-                plus any additional keyword arguments you need.
+                MAS, input, context, attack_hooks, and any additional keyword arguments you need.
         agents: The agent(s) to be used in the multi-agent-system runner.
+        **runner_config: Default runner configuration. Can be overridden in query().
+            Examples:
+            - For orchestrator_worker: endpoint_orchestrator, max_orchestrator_iterations
+            - For planner_executor: endpoint_planner, endpoint_executor, max_iterations, 
+                max_planner_iterations, max_executor_iterations, enable_planner_memory, 
+                enable_executor_memory, shared_memory, termination_condition
+            - For custom runners: any parameters your runner accepts
         """
 
         if isinstance(MAS_runner, str) and MAS_runner == "orchestrator_worker":
@@ -375,21 +381,34 @@ class MultiAgentSystem:
             raise ValueError(f"Invalid runner specified. Supported runners are {get_args(self.ImplementedMASRunnerType)} or you can provide a custom multi-agent-system runner as an async function.")
 
         self.agents = agents
+        self.runner_config = runner_config
 
     async def query(
         self,
         input: str | list[dict[str, Any]],
         context: TaskEnvironment | None = None,
         attack_hooks: list[AttackHook] | None = None,
-        **kwargs: Any,
+        **runner_kwargs: Any,
     ) -> MASRunResult:
+        """
+        Query the multi-agent system.
+        
+        Args:
+            input: The input to the MAS.
+            context: The task environment.
+            attack_hooks: Optional attack hooks.
+            **runner_kwargs: Runner-specific parameters that override runner_config from __init__.
+                Examples: max_iterations, endpoint_planner, enable_planner_memory, etc.
+        """
+        # Merge: defaults from init + runtime overrides (query kwargs take precedence)
+        final_runner_config = {**self.runner_config, **runner_kwargs}
         
         return await self.MAS_runner(
             MAS=self,
             input=input,
             context=context,
             attack_hooks=attack_hooks,
-            **kwargs
+            **final_runner_config
         )
     
     def _agent_output_to_agent_input(
