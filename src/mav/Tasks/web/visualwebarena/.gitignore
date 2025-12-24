@@ -1,0 +1,29 @@
+# Large image files - not needed for core functionality
+coco_images/
+media/
+config_files/
+environment_docker/
+
+# Example images in prompts
+agent/prompts/multimodal_examples/
+agent/prompts/som_examples/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+
+# Test outputs
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.bmp
+*.webp
+
+# Misc
+.DS_Store
+*.log

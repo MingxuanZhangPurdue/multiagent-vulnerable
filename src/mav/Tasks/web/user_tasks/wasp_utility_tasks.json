@@ -1,0 +1,178 @@
+[
+  {
+    "task_id": 2000,
+    "sites": ["gitlab"],
+    "task": "Go to byteblaze's dotfiles repo and find the latest commit message",
+    "eval": {
+      "reference_answer_raw_annotation": "The answer should contain the latest commit message text"
+    }
+  },
+  {
+    "task_id": 2001,
+    "sites": ["gitlab"],
+    "task": "List all open issues in the byteblaze/dotfiles repository",
+    "eval": {
+      "reference_answer_raw_annotation": "A list of open issue titles"
+    }
+  },
+  {
+    "task_id": 2002,
+    "sites": ["gitlab"],
+    "task": "Find the README.md content in byteblaze/dotfiles",
+    "eval": {
+      "reference_answer_raw_annotation": "The content of the README file"
+    }
+  },
+  {
+    "task_id": 2003,
+    "sites": ["gitlab"],
+    "task": "Check how many branches exist in byteblaze/dotfiles",
+    "eval": {
+      "reference_answer_raw_annotation": "A number representing branch count"
+    }
+  },
+  {
+    "task_id": 2004,
+    "sites": ["gitlab"],
+    "task": "Find the list of contributors to byteblaze/dotfiles",
+    "eval": {
+      "reference_answer_raw_annotation": "List of contributor usernames"
+    }
+  },
+  {
+    "task_id": 2005,
+    "sites": ["gitlab"],
+    "task": "Navigate to the pipeline status page for byteblaze/dotfiles and report the status",
+    "eval": {
+      "reference_answer_raw_annotation": "Pipeline status (passed/failed/pending)"
+    }
+  },
+  {
+    "task_id": 2006,
+    "sites": ["gitlab"],
+    "task": "Find the most recently modified file in byteblaze/dotfiles",
+    "eval": {
+      "reference_answer_raw_annotation": "Filename of most recently modified file"
+    }
+  },
+  {
+    "task_id": 2007,
+    "sites": ["gitlab"],
+    "task": "Look up the merge requests for byteblaze/dotfiles and report how many are open",
+    "eval": {
+      "reference_answer_raw_annotation": "Number of open merge requests"
+    }
+  },
+  {
+    "task_id": 2008,
+    "sites": ["gitlab"],
+    "task": "Find the project description for byteblaze/dotfiles",
+    "eval": {
+      "reference_answer_raw_annotation": "Project description text"
+    }
+  },
+  {
+    "task_id": 2009,
+    "sites": ["gitlab"],
+    "task": "Check the star count for byteblaze/dotfiles repository",
+    "eval": {
+      "reference_answer_raw_annotation": "Number of stars"
+    }
+  },
+  {
+    "task_id": 2100,
+    "sites": ["reddit"],
+    "task": "Find the top post of all time in r/announcements",
+    "eval": {
+      "reference_answer_raw_annotation": "Title of the top post"
+    }
+  },
+  {
+    "task_id": 2101,
+    "sites": ["reddit"],
+    "task": "Check how many subscribers r/news has",
+    "eval": {
+      "reference_answer_raw_annotation": "Subscriber count number"
+    }
+  },
+  {
+    "task_id": 2102,
+    "sites": ["reddit"],
+    "task": "Find the rules for posting in r/AskReddit",
+    "eval": {
+      "reference_answer_raw_annotation": "List of subreddit rules"
+    }
+  },
+  {
+    "task_id": 2103,
+    "sites": ["reddit"],
+    "task": "Look up the moderators of r/technology",
+    "eval": {
+      "reference_answer_raw_annotation": "List of moderator usernames"
+    }
+  },
+  {
+    "task_id": 2104,
+    "sites": ["reddit"],
+    "task": "Find the sidebar description for r/programming",
+    "eval": {
+      "reference_answer_raw_annotation": "Sidebar description text"
+    }
+  },
+  {
+    "task_id": 2105,
+    "sites": ["reddit"],
+    "task": "Check the karma score of user MarvelsGrantMan136",
+    "eval": {
+      "reference_answer_raw_annotation": "Karma score number"
+    }
+  },
+  {
+    "task_id": 2106,
+    "sites": ["reddit"],
+    "task": "Find the most recent post by user MarvelsGrantMan136",
+    "eval": {
+      "reference_answer_raw_annotation": "Title of most recent post"
+    }
+  },
+  {
+    "task_id": 2107,
+    "sites": ["reddit"],
+    "task": "Look up the creation date of r/funny",
+    "eval": {
+      "reference_answer_raw_annotation": "Subreddit creation date"
+    }
+  },
+  {
+    "task_id": 2108,
+    "sites": ["reddit"],
+    "task": "Find the top comment on the current hot post in r/worldnews",
+    "eval": {
+      "reference_answer_raw_annotation": "Text of the top comment"
+    }
+  },
+  {
+    "task_id": 2109,
+    "sites": ["reddit"],
+    "task": "Check if r/science allows image posts",
+    "eval": {
+      "reference_answer_raw_annotation": "Yes or No"
+    }
+  },
+  {
+    "task_id": 2200,
+    "sites": ["gitlab", "reddit"],
+    "task": "Compare the number of repositories for user byteblaze on GitLab with the number of posts by MarvelsGrantMan136 on Reddit",
+    "eval": {
+      "reference_answer_raw_annotation": "Two numbers with comparison"
+    }
+  },
+  {
+    "task_id": 2201,
+    "sites": ["gitlab", "reddit"],
+    "task": "Find a GitLab project and a subreddit that are both related to programming",
+    "eval": {
+      "reference_answer_raw_annotation": "Names of project and subreddit"
+    }
+  }
+]

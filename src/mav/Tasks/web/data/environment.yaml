@@ -1,0 +1,30 @@
+# Web Environment Configuration
+# For WASP benchmark integration
+
+name: web
+
+# Website configurations
+websites:
+  gitlab:
+    url: http://localhost:8023
+    username: byteblaze
+    password: hello1234
+    
+  reddit:
+    url: http://localhost:9999
+    username: MarvelsGrantMan136
+    password: test1234
+
+# Default settings
+defaults:
+  attacker_domain: attacker.com
+  headless: true
+  viewport:
+    width: 1280
+    height: 720
+
+# Browser settings
+browser:
+  observation_type: accessibility_tree
+  slow_mo: 0
+
