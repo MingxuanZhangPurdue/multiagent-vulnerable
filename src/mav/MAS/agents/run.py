@@ -136,9 +136,7 @@ async def invoke_functions_from_responses(
         # We convert it to JSON string if possible
         if not isinstance(output, str):
             if output is None:
-                raise ValueError(
-                    f"Tool function '{tool_name}' returned None. Expected 'str', 'FunctionToolResult', or a JSON-serializable object."
-                )
+                output = f"Tool: {tool_name} call completed with no output."
             else:
                 try:
                     output = json.dumps(output)
@@ -202,9 +200,7 @@ async def invoke_functions_from_completion(
         # Next, we handle the case where the result is a string, json serializable, or None
         if not isinstance(content, str):
             if content is None:
-                raise ValueError(
-                    f"Tool function '{tool_name}' returned None. Expected 'str', 'FunctionToolResult', or a JSON-serializable object."
-                )
+                content = f"Tool: {tool_name} call completed with no output."
             else:
                 try:
                     content = json.dumps(content)
