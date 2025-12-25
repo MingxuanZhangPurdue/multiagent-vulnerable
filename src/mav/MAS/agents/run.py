@@ -132,21 +132,21 @@ async def invoke_functions_from_responses(
         else:
             output = result
 
-        # Next, we handle the case where the result is a string, json serializable, or None
-        if isinstance(output, str):
-            output = output
-        elif output is None:
-            raise ValueError(
-                f"Tool function '{tool_name}' returned None. Expected 'str', 'FunctionToolResult', or a JSON-serializable object."
-            )
-        else:
-            try:
-                output = json.dumps(output)
-            except (TypeError, ValueError) as e:
-                raise TypeError(
-                    f"Tool function '{tool_name}' returned unsupported type '{type(output).__name__}'. "
-                    f"Expected 'str', 'FunctionToolResult', or a JSON-serializable object. Error: {e}"
+        # Next, we handle the case where the result is a not a string
+        # We convert it to JSON string if possible
+        if not isinstance(output, str):
+            if output is None:
+                raise ValueError(
+                    f"Tool function '{tool_name}' returned None. Expected 'str', 'FunctionToolResult', or a JSON-serializable object."
                 )
+            else:
+                try:
+                    output = json.dumps(output)
+                except (TypeError, ValueError) as e:
+                    raise TypeError(
+                        f"Tool function '{tool_name}' returned unsupported type '{type(output).__name__}'. "
+                        f"Expected 'str', 'FunctionToolResult', or a JSON-serializable object. Error: {e}"
+                    )
         
         # Return formatted response
         return {
@@ -200,20 +200,19 @@ async def invoke_functions_from_completion(
             content = result
 
         # Next, we handle the case where the result is a string, json serializable, or None
-        if isinstance(content, str):
-            content = content
-        elif content is None:
-            raise ValueError(
-                f"Tool function '{tool_name}' returned None. Expected 'str', 'FunctionToolResult', or a JSON-serializable object."
-            )
-        else:
-            try:
-                content = json.dumps(content)
-            except (TypeError, ValueError) as e:
-                raise TypeError(
-                    f"Tool function '{tool_name}' returned unsupported type '{type(content).__name__}'. "
-                    f"Expected 'str', 'FunctionToolResult', or a JSON-serializable object. Error: {e}"
+        if not isinstance(content, str):
+            if content is None:
+                raise ValueError(
+                    f"Tool function '{tool_name}' returned None. Expected 'str', 'FunctionToolResult', or a JSON-serializable object."
                 )
+            else:
+                try:
+                    content = json.dumps(content)
+                except (TypeError, ValueError) as e:
+                    raise TypeError(
+                        f"Tool function '{tool_name}' returned unsupported type '{type(content).__name__}'. "
+                        f"Expected 'str', 'FunctionToolResult', or a JSON-serializable object. Error: {e}"
+                    )
         
         # Return formatted response
         return {
