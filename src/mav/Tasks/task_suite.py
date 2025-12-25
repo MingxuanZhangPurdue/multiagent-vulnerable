@@ -5,12 +5,12 @@ import asyncio
 from collections import defaultdict
 from functools import lru_cache
 from pathlib import Path
-from typing import Generic, TypeVar, Callable, List, Sequence
+from typing import Generic, TypeVar, Callable, List, Sequence, Any
 from mav.items import FunctionCall
 from mav.Tasks.base_environment import TaskEnvironment
 from mav.Tasks.utils.yaml_loader import ImportLoader
 from mav.Tasks.base_tasks import BaseUserTask, BaseAttackTask
-from mav.MAS.framework import MultiAgentSystem
+from mav.MAS.framework import MultiAgentSystem, MASRunResult
 from mav.Attacks import BaseAttack
 from mav.MAS.attack_hook import AttackHook
 
@@ -166,7 +166,8 @@ class TaskSuite(Generic[Env]):
         user_task: BaseUserTask[Env],
         environment: Env | None = None,
         attack_hooks: list[AttackHook] | None = None
-    ) -> tuple[bool, bool]:
+    ) -> dict[str, Any]:
+        
         # If no environment is provided, load the default environment
         if environment is None:
             environment = self.load_default_environment()
@@ -182,53 +183,27 @@ class TaskSuite(Generic[Env]):
             prompt = user_task.PROMPT
         else:
             raise ValueError(f"User task {user_task.ID} is not a valid BaseUserTask instance")
-    
-        import time
-        start_time = time.perf_counter()
-        result = await multi_agent_system.query(
+
+        result: MASRunResult = await multi_agent_system.query(
             input=prompt, 
-            env=task_environment,
+            context=task_environment,
             attack_hooks=attack_hooks
         )
-        execution_time = time.perf_counter() - start_time
 
-        if result["final_output"] is None:
+        if result.final_output is None:
             warnings.warn(f"Model output was None for task {user_task.ID}")
 
-        result["execution_time"] = execution_time
-
-        functions_stack_trace = result.get("function_calls", [])
-        utility, function_calls_match = self._check_task_result(
+        utility = self._check_user_task_utility(
             user_task,
-            result["final_output"] or [],
+            result.final_output,
             pre_environment,
-            task_environment,  # type: ignore
-            functions_stack_trace,
+            task_environment,
         )
 
-        if attack_hooks is not None and len(attack_hooks) > 0:
-            # Treat attack tasks differently from regular user tasks
-            if isinstance(user_task, BaseAttackTask):
-                # For attack tasks, use the task's own security method
-                security = self._check_security(
-                    user_task,
-                    result["final_output"] or [],
-                    pre_environment,
-                    task_environment,
-                    result
-                )
-            else:
-                # For regular user tasks with attack hooks, evaluate security based on attack hooks
-                security = self._evaluate_attack_hook_security(
-                    attack_hooks,
-                    result["final_output"] or [],
-                    pre_environment,
-                    task_environment,
-                    result
-                )
-        else:
-            security = None
-        return utility, function_calls_match, security, result
+        return {
+            "utility": utility,
+            "MAS_run_result": result
+        }
 
     def _check_security(
         self,
@@ -316,34 +291,13 @@ class TaskSuite(Generic[Env]):
     
     def _check_user_attack_task_utility(
         self,
-        task: BaseUserTask,
+        task: BaseUserTask | BaseAttackTask,
         model_output: str | List[str],
         pre_environment: Env,
         task_environment: Env,
         result: dict
     ) -> bool:
         return task.security(model_output, pre_environment, task_environment, result)
-
-    def _check_task_result(
-        self,
-        task: BaseUserTask,
-        model_output: str | List[str],
-        pre_environment: Env,
-        task_environment: Env,
-        functions_stack_trace: Sequence[FunctionCall],
-    ) -> bool:
-        utility = self._check_user_task_utility(
-            task,
-            model_output,
-            pre_environment,
-            task_environment,
-        )
-        function_calls_match = self._check_function_calls(
-            task,
-            pre_environment,
-            functions_stack_trace,
-        )
-        return utility, function_calls_match
 
     def _check_attack_task_result(
         self,
