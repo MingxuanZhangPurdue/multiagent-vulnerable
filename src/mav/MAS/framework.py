@@ -14,7 +14,7 @@ from mav.MAS.agents import (
 
 from typing import Any, Literal, get_args, Awaitable
 from pydantic import BaseModel
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from mav.MAS.terminations import BaseTermination
 from mav.Tasks.base_environment import TaskEnvironment
@@ -52,6 +52,9 @@ class MASRunResult:
     """The total time duration taken for the MAS run."""
 
     errors: list[str] | None = None
+
+    appendix: dict[str, Any] = field(default_factory=dict)
+    """An optional dictionary containing any additional information about the MAS run."""
 
     def __post_init__(self):
         if not self.errors:
