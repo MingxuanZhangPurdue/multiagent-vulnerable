@@ -18,11 +18,11 @@ class FunctionTool:
     params_json_schema: dict[str, Any]
     """The JSON schema of the parameters of the function tool"""
 
-    on_invoke_tool: Callable[..., str | FunctionToolResult]
-    """The function to call when the tool is invoked, the function should return either a string or a FunctionToolResult."""
+    on_invoke_tool: Callable[..., str | FunctionToolCallResult]
+    """The function to call when the tool is invoked, the function should return either a string or a FunctionToolCallResult."""
 
 @dataclass
-class FunctionToolResult:
+class FunctionToolCallResult:
     output: str | Any
     """The result returned by the function tool."""
 

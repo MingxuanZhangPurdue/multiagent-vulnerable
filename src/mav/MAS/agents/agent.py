@@ -5,7 +5,7 @@ import inspect
 from dataclasses import dataclass, field
 from typing import Callable, cast, Awaitable, Any, Literal
 
-from .tool import convert_to_function_tool, FunctionTool, FunctionToolResult
+from .tool import convert_to_function_tool, FunctionTool, FunctionToolCallResult
 from .session import BaseSession
 from .guardrail import (
     InputGuardrail,
@@ -152,7 +152,7 @@ class Agent():
                 when to use it.
         """
 
-        async def run_agent(context: TaskEnvironment, input: str) -> FunctionToolResult:
+        async def run_agent(context: TaskEnvironment, input: str) -> FunctionToolCallResult:
             from mav.MAS.agents import Runner, RunResult
 
             resolved_max_turns = max_turns if max_turns is not None else 10
@@ -166,7 +166,7 @@ class Agent():
                 endpoint=endpoint,
             )
 
-            return FunctionToolResult(
+            return FunctionToolCallResult(
                 output=output.final_output if output.final_output is not None else "",
                 usage=output.usage,
                 appendix=None,

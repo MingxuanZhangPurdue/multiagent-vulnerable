@@ -14,7 +14,7 @@ from litellm.types.llms.openai import (
 from .agent import Agent
 from .session import BaseSession, InMemorySession
 from .items import RunResult
-from .tool import FunctionToolResult
+from .tool import FunctionToolCallResult
 from .guardrail import (
     InputGuardrail,
     OutputGuardrail,
@@ -125,8 +125,8 @@ async def invoke_functions_from_responses(
         output = None
         tool_usage = None
 
-        # If the result is an instance of FunctionToolResult, we first extract output and usage
-        if isinstance(result, FunctionToolResult):
+        # If the result is an instance of FunctionToolCallResult, we first extract output and usage
+        if isinstance(result, FunctionToolCallResult):
             output = result.output
             tool_usage = result.usage
         else:
@@ -190,8 +190,8 @@ async def invoke_functions_from_completion(
         content = None
         tool_usage = None
 
-        # If the result is an instance of FunctionToolResult, we first extract output and usage
-        if isinstance(result, FunctionToolResult):
+        # If the result is an instance of FunctionToolCallResult, we first extract output and usage
+        if isinstance(result, FunctionToolCallResult):
             content = result.output
             tool_usage = result.usage
         else:
