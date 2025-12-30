@@ -396,18 +396,23 @@ class Runner:
             if not tool_calls:
                 break
 
-            for tool_call in tool_calls:
-                all_tool_calls.append({
-                    "tool_name": tool_call.name,
-                    "tool_arguments": tool_call.arguments,
-                    "tool_call_id": tool_call.call_id
-                })
-
             intermediate_messages = await invoke_functions_from_responses(
                 tool_calls=tool_calls,  
                 tool_mapping=agent.tool_mapping,
                 context=context,
             )
+
+           # Create a mapping of call_id to output from intermediate messages
+            output_map = {msg["call_id"]: msg.get("output") for msg in intermediate_messages}
+
+            # Create ToolCallResult objects by matching call_id
+            for tool_call in tool_calls:
+                all_tool_calls.append({
+                    "name": tool_call.name,
+                    "call_id": tool_call.call_id,
+                    "arguments": json.loads(tool_call.arguments or "{}"),
+                    "output": output_map.get(tool_call.call_id)
+                })
 
             # Update usage from tool invocations for tool calls that called llms internally
             for item in intermediate_messages:
@@ -521,18 +526,23 @@ class Runner:
             if not tool_calls:
                 break
 
-            for tool_call in tool_calls:
-                all_tool_calls.append({
-                    "tool_name": tool_call.function.name,
-                    "tool_arguments": tool_call.function.arguments,
-                    "tool_call_id": tool_call.id,
-                })
-
             intermediate_messages = await invoke_functions_from_completion(
                 tool_calls=tool_calls,  
                 tool_mapping=agent.tool_mapping,
                 context=context,
             )
+
+            # Create a mapping of tool_call_id to content from intermediate messages
+            content_map = {msg["tool_call_id"]: msg.get("content") for msg in intermediate_messages}
+
+            # Create ToolCallResult objects by matching tool_call_id
+            for tool_call in tool_calls:
+                all_tool_calls.append({
+                    "name": tool_call.function.name,
+                    "call_id": tool_call.id,
+                    "arguments": json.loads(tool_call.function.arguments or "{}"),
+                    "output": content_map.get(tool_call.id)
+                })
 
             # Update usage from tool invocations for tool calls that called llms internally
             for item in intermediate_messages:
