@@ -12,13 +12,12 @@ from mav.MAS.agents import (
     RunResult
 )
 
-from typing import Any, Literal, get_args, Awaitable
+from typing import Any, Literal, get_args, Awaitable, Callable
 from pydantic import BaseModel
 from dataclasses import dataclass, field
 
 from mav.MAS.terminations import BaseTermination
 from mav.Tasks.base_environment import TaskEnvironment
-from mav.MAS.attack_hook import AttackHook
 
 from mav.MAS.agents.run import update_usage
 
@@ -64,7 +63,7 @@ async def run_orchestrator_worker(
     MAS: MultiAgentSystem,
     input: str | list[dict[str, Any]],
     context: TaskEnvironment | None = None,
-    attack_hooks: list[AttackHook] | None = None,
+    attack_hooks: list[Callable] | None = None,
     # runner specific parameters
     endpoint_orchestrator: Literal["completion", "responses"] | None = None,
     max_orchestrator_iterations: int = 10,
@@ -82,7 +81,7 @@ async def run_orchestrator_worker(
         MAS: The MultiAgentSystem instance containing the agents and configuration.
         input: The initial input to the orchestrator agent.
         context: The task environment in which the agents operate.
-        attack_hooks: Optional list of AttackHook instances to apply attacks during execution.
+        attack_hooks: Optional list of callable to apply attacks during execution.
         endpoint_orchestrator: The litellm endpoint type to use for the agent runner, either "completion" or "responses".
         max_orchestrator_iterations: Maximum number of iterations for the orchestrator agent.
     """
@@ -157,7 +156,7 @@ async def run_planner_executor(
         MAS: MultiAgentSystem,
         input: str | list[dict[str, Any]],
         context: TaskEnvironment | None = None,
-        attack_hooks: list[AttackHook] | None = None,
+        attack_hooks: list[Callable] | None = None,
         # runner specific parameters
         endpoint_planner: Literal["completion", "responses"] | None = None,
         endpoint_executor: Literal["completion", "responses"] | None = None,
@@ -185,7 +184,7 @@ async def run_planner_executor(
             MAS: The MultiAgentSystem instance containing the agents and configuration.
             input: The initial input to the planner agent.
             context: The task environment in which the agents operate.
-            attack_hooks: Optional list of AttackHook instances to apply attacks during execution.
+            attack_hooks: Optional list of callable to apply attacks during execution.
             endpoint_planner: The litellm endpoint type to use for the planner agent runner, either "completion" or "responses".
             endpoint_executor: The litellm endpoint type to use for the executor agent runner, either "completion" or "responses".
             max_iterations: Maximum number of planner-executor iterations.
@@ -258,18 +257,36 @@ async def run_planner_executor(
 
         MAS_final_output = None
 
+        MAS_run_state = {
+            "iteration": iteration,
+            "planner_input": planner_input,
+            "executor_input": executor_input,
+            "planner_memory": planner_memory,
+            "executor_memory": executor_memory,
+            "context": context
+        }
+
+        # event: mas_run_start
+        for attack_hook in attack_hooks or []:
+            await attack_hook(event="mas_run_start", MAS_run_state=MAS_run_state, agent_run_state=None)
+
         while iteration < max_iterations:
             
             # Planner turn
+
+            # event: planner_turn_start
+            for attack_hook in attack_hooks or []:
+                await attack_hook(event="planner_turn_start", MAS_run_state=MAS_run_state, agent_run_state=None)
             try:
                 planner_result: RunResult = await Runner.run(
                     agent=planner,
-                    input=planner_input,
+                    input=MAS_run_state["planner_input"],
                     context=context,
                     attack_hooks=attack_hooks,
                     session=planner_memory,
                     max_turns=max_planner_iterations,
-                    endpoint=endpoint_planner
+                    endpoint=endpoint_planner,
+                    MAS_run_state=MAS_run_state
                 )
             except Exception as e:
                 error_message = f"Error during MAS planner_executor run at iteration {iteration} for the planner: {e} \n{traceback.format_exc()}"
@@ -292,6 +309,7 @@ async def run_planner_executor(
 
             try:
                 executor_input = MAS._agent_output_to_agent_input(planner_result.final_output)
+                MAS_run_state["executor_input"] = executor_input
             except Exception as e:
                 error_message = f"Error casting planner output to executor input at iteration {iteration}: {e} \n{traceback.format_exc()}"
                 logger.error(error_message)
@@ -299,13 +317,18 @@ async def run_planner_executor(
                 break
             
             try:
+                # event: executor_turn_start
+                for attack_hook in attack_hooks or []:
+                    await attack_hook(event="executor_turn_start", MAS_run_state=MAS_run_state, agent_run_state=None)
                 executor_result: RunResult = await Runner.run(
                     agent=executor,
-                    input=executor_input,
+                    input=MAS_run_state["executor_input"],
                     context=context,
                     session=executor_memory,
                     max_turns=max_executor_iterations,
                     endpoint=endpoint_executor,
+                    MAS_run_state=MAS_run_state,
+                    attack_hooks=attack_hooks
                 )
             except Exception as e:
                 error_message = f"Error during MAS planner_executor run at iteration {iteration} for executor: {e} \n{traceback.format_exc()}"
@@ -321,6 +344,7 @@ async def run_planner_executor(
 
             try:
                 planner_input = MAS._agent_output_to_agent_input(executor_result.final_output)
+                MAS_run_state["planner_input"] = planner_input
             except Exception as e:
                 error_message = f"Error casting executor output to planner input at iteration {iteration}: {e} \n{traceback.format_exc()}"
                 logger.error(error_message)
@@ -328,6 +352,11 @@ async def run_planner_executor(
                 break
 
             iteration += 1
+            MAS_run_state["iteration"] = iteration
+
+        # event: mas_run_end
+        for attack_hook in attack_hooks or []:
+            await attack_hook(event="mas_run_end", MAS_run_state=MAS_run_state, agent_run_state=None)
 
         logger.info("planner_executor MAS run completed.")
 
@@ -390,7 +419,7 @@ class MultiAgentSystem:
         self,
         input: str | list[dict[str, Any]],
         context: TaskEnvironment | None = None,
-        attack_hooks: list[AttackHook] | None = None,
+        attack_hooks: list[Callable] | None = None,
         **runner_kwargs: Any,
     ) -> MASRunResult:
         """
@@ -399,7 +428,7 @@ class MultiAgentSystem:
         Args:
             input: The input to the MAS.
             context: The task environment.
-            attack_hooks: Optional attack hooks.
+            attack_hooks: Optional list of callable to apply attacks during execution.
             **runner_kwargs: Runner-specific parameters that override runner_config from __init__.
                 Examples: max_iterations, endpoint_planner, enable_planner_memory, etc.
         """

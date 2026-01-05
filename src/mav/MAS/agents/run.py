@@ -4,6 +4,7 @@ import json
 import time
 import inspect
 
+from dataclasses import dataclass
 from typing import Any, Callable, get_type_hints, Literal
 from litellm.types.utils import ModelResponse, ChatCompletionMessageToolCall
 from litellm.types.llms.openai import (
@@ -24,7 +25,17 @@ from .guardrail import (
 )
 
 from mav.Tasks.base_environment import TaskEnvironment
-from mav.MAS.attack_hook import AttackHook
+
+@dataclass
+class Agent_Run_State:
+
+    iteration: int 
+
+    session: BaseSession
+
+    agent: Agent
+
+    context: TaskEnvironment | None
 
 def update_usage(
     total_usage: dict[str, Any],
@@ -225,6 +236,20 @@ async def invoke_functions_from_completion(
 class Runner:
 
     @classmethod
+    async def _invoke_attack_hook(
+        cls,
+        attack_hook: Callable,
+        event: str,
+        agent_run_state: Agent_Run_State,
+        MAS_run_state: dict[str, Any] | None
+    ) -> None:
+        """Invoke an attack hook, handling both sync and async functions."""
+        if inspect.iscoroutinefunction(attack_hook):
+            await attack_hook(event=event, agent_run_state=agent_run_state, MAS_run_state=MAS_run_state)
+        else:
+            await asyncio.to_thread(attack_hook, event=event, agent_run_state=agent_run_state, MAS_run_state=MAS_run_state)
+
+    @classmethod
     def support_responses_endpoint(
         cls,
         model: str
@@ -283,9 +308,10 @@ class Runner:
         input: str | list[dict[str, Any]] | dict[str, Any],
         context: TaskEnvironment | None = None,
         session: BaseSession | None = None,
-        attack_hooks: list[AttackHook] | None = None,
+        attack_hooks: list[Callable] | None = None,
         max_turns: int = 10,
-        endpoint: Literal["completion", "responses"] | None = None
+        endpoint: Literal["completion", "responses"] | None = None,
+        MAS_run_state: dict[str, Any] | None = None,
     ):
         
         """
@@ -306,6 +332,7 @@ class Runner:
                 session=session,
                 attack_hooks=attack_hooks,
                 max_turns=max_turns,
+                MAS_run_state=MAS_run_state
             )
 
         elif endpoint == "responses":
@@ -313,11 +340,12 @@ class Runner:
                 raise ValueError(f"Model {agent.model} does not support responses endpoint.")
             return await cls.run_responses(
                 agent=agent,
-                input=input,
+                input=input, 
                 context=context,
                 session=session,
                 attack_hooks=attack_hooks,
                 max_turns=max_turns,
+                MAS_run_state=MAS_run_state
             )
         
         else:
@@ -330,8 +358,9 @@ class Runner:
         input: str | list[dict[str, Any]] | dict[str, Any],
         context: TaskEnvironment | None = None,
         session: BaseSession | None = None,
-        attack_hooks: list[AttackHook] | None = None,
+        attack_hooks: list[Callable] | None = None,
         max_turns: int = 10,
+        MAS_run_state: dict[str, Any] | None = None,
     ) -> RunResult:
         
         # Run input guardrails BEFORE agent execution
@@ -366,7 +395,22 @@ class Runner:
         else:
             raise TypeError(f"Input must be a string, a dict, or a list, but got {type(input)}")
         
+        agent_run_state = Agent_Run_State(
+            iteration=turn,
+            session=session,
+            agent=agent,
+            context=context
+        )
+
+        # event: run_start
+        for attack_hook in attack_hooks or []:
+            await cls._invoke_attack_hook(attack_hook, "run_start", agent_run_state, MAS_run_state)
+        
         while turn < max_turns:
+
+            # event: before_model_call
+            for attack_hook in attack_hooks or []:
+                await cls._invoke_attack_hook(attack_hook, "before_model_call", agent_run_state, MAS_run_state)
 
             system_prompt = await agent.get_system_prompt(run_context=context)
 
@@ -388,6 +432,10 @@ class Runner:
                 await session.add_items([item.to_dict()])
                 if item.type == "function_call":
                     tool_calls.append(item)
+
+            # event: after_model_call
+            for attack_hook in attack_hooks or []:
+                await cls._invoke_attack_hook(attack_hook, "after_model_call", agent_run_state, MAS_run_state)
 
             if model_response.usage is not None:
                 usage = update_usage(usage, {agent.model: model_response.usage.model_dump()})
@@ -425,7 +473,16 @@ class Runner:
 
             await session.add_items(intermediate_messages)
 
+            # event: after_tool_calls
+            for attack_hook in attack_hooks or []:
+                await cls._invoke_attack_hook(attack_hook, "after_tool_calls", agent_run_state, MAS_run_state)
+
             turn += 1
+            agent_run_state.iteration = turn
+
+        # event: run_end
+        for attack_hook in attack_hooks or []:
+            await cls._invoke_attack_hook(attack_hook, "run_end", agent_run_state, MAS_run_state)
 
         # Extract all message outputs from the last response
         final_output = []
@@ -463,8 +520,9 @@ class Runner:
         input: str | list[dict[str, Any]] | dict[str, Any],
         context: TaskEnvironment | None = None,
         session: BaseSession | None = None,
-        attack_hooks: list[AttackHook] | None = None,
+        attack_hooks: list[Callable] | None = None,
         max_turns: int = 10,
+        MAS_run_state: dict[str, Any] | None = None,
     ) -> RunResult:
         
         # Run input guardrails BEFORE agent execution
@@ -499,7 +557,22 @@ class Runner:
         else:
             raise TypeError(f"Input must be a string, a dict, or a list, but got {type(input)}")
         
+        agent_run_state = Agent_Run_State(
+            iteration=turn,
+            session=session,
+            agent=agent,
+            context=context
+        )
+        
+        # event: run_start
+        for attack_hook in attack_hooks or []:
+            await cls._invoke_attack_hook(attack_hook, "run_start", agent_run_state, MAS_run_state)
+        
         while turn < max_turns:
+            
+            # event: before_model_call
+            for attack_hook in attack_hooks or []:
+                await cls._invoke_attack_hook(attack_hook, "before_model_call", agent_run_state, MAS_run_state)
 
             system_prompt = await agent.get_system_prompt(run_context=context)
 
@@ -516,6 +589,10 @@ class Runner:
             )
 
             await session.add_items([model_response.choices[0].message.to_dict()])
+
+            # event: after_model_call
+            for attack_hook in attack_hooks or []:
+                await cls._invoke_attack_hook(attack_hook, "after_model_call", agent_run_state, MAS_run_state)
 
             tool_calls = model_response.choices[0].message.tool_calls
 
@@ -555,7 +632,16 @@ class Runner:
 
             await session.add_items(intermediate_messages)
 
+            # event: after_tool_calls
+            for attack_hook in attack_hooks or []:
+                await cls._invoke_attack_hook(attack_hook, "after_tool_calls", agent_run_state, MAS_run_state)
+
             turn += 1
+            agent_run_state.iteration = turn
+
+        # event: run_end
+        for attack_hook in attack_hooks or []:
+            await cls._invoke_attack_hook(attack_hook, "run_end", agent_run_state, MAS_run_state)
 
         final_output = model_response.choices[0].message.content
 
