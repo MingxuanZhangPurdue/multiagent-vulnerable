@@ -2,19 +2,19 @@ import yaml
 import re
 import warnings
 import asyncio
+import time
+import traceback
 from collections import defaultdict
 from functools import lru_cache
 from pathlib import Path
-from typing import Generic, TypeVar, Callable, List, Sequence, Any
+from typing import Generic, TypeVar, Callable, Any
 from mav.items import FunctionCall
 from mav.Tasks.base_environment import TaskEnvironment
 from mav.Tasks.utils.yaml_loader import ImportLoader
 from mav.Tasks.base_tasks import BaseUserTask, BaseAttackTask
 from mav.MAS.framework import MultiAgentSystem, MASRunResult
-from mav.Attacks import BaseAttack
 from mav.MAS.attack_hook import AttackHook
-
-IT = TypeVar("IT")
+from mav.items import FunctionCall
 
 Env = TypeVar("Env", bound=TaskEnvironment)
 
@@ -33,79 +33,21 @@ def read_suite_file(suite_name: str, file: str, suite_data_path: Path | None) ->
     # dump back to string to pass to include injections later
     return yaml.dump(data_yaml, default_flow_style=False)
 
-def matches_ground_truth(actual_calls: list[FunctionCall], ground_truth_calls: list[FunctionCall], strict: bool = False) -> bool:
-    """
-    Check if a list of actual function calls matches the ground truth calls.
-    
-    Args:
-        actual_calls: List of FunctionCall objects that were actually made
-        ground_truth_calls: List of expected FunctionCall objects from ground_truth method
-        strict: If True, requires exact order and all calls. If False, allows partial matches.
-    
-    Returns:
-        bool: True if the calls match the ground truth, False otherwise
-    """
-    if strict:
-        # Exact match: same number of calls in same order
-        if len(actual_calls) != len(ground_truth_calls):
-            return False
-        
-        for actual, ground_truth in zip(actual_calls, ground_truth_calls):
-            if not _function_calls_equal(actual, ground_truth):
-                return False
-        return True
-    else:
-        # Partial match: all ground truth calls must be present (order doesn't matter)
-        for expected_call in ground_truth_calls:
-            if not any(_function_calls_equal(actual_call, expected_call) for actual_call in actual_calls):
-                return False
-        return True
-
-def _function_calls_equal(actual_call: FunctionCall, ground_truth_call: FunctionCall) -> bool:
-    """
-    Compare an actual FunctionCall to a ground truth FunctionCall.
-
-    Rules:
-      - Function names must match.
-      - Only arguments explicitly present (and not None) in the ground truth must
-        appear in the actual call with matching values.
-      - Additional arguments in the actual call are ignored.
-      - None-valued arguments in the ground truth are ignored (treated as unspecified).
-      - Numeric args (int/float) are compared with a small tolerance.
-      - Other values compared case-insensitively via string form.
-    """
-    if actual_call.function != ground_truth_call.function:
-        return False
-
-    def filter_none_args(args_dict):
-        return {k: v for k, v in args_dict.items() if v is not None}
-
-    actual_args = filter_none_args(actual_call.args)
-    expected_args = filter_none_args(ground_truth_call.args)
-
-    # Ensure every expected (ground truth) arg is present and matches in the actual call
-    for key, expected_val in expected_args.items():
-        if key not in actual_args:
-            return False
-        actual_val = actual_args[key]
-
-        if isinstance(actual_val, (int, float)) and isinstance(expected_val, (int, float)):
-            if abs(actual_val - expected_val) > 1e-9:
-                return False
-        else:
-            if str(actual_val).lower() != str(expected_val).lower():
-                return False
-
-    return True
-
 class TaskSuite(Generic[Env]):
     def __init__(
         self,
         name: str,
         environment_type: type[Env],
-        tools: List[Callable],
+        tools: list[Callable],
         data_path: Path | None = None,
     ):
+        """Initialize a Task Suite.
+        Args:
+            name: The name of the task suite.
+            environment_type: The type of environment used in the task suite.
+            tools: A list of tool callables available to agents in the suite.
+            data_path: Optional path to the suite's data files.
+        """
         self.name = name
         self.environment_type = environment_type
         self.tools = tools
@@ -113,10 +55,12 @@ class TaskSuite(Generic[Env]):
         self.data_path = data_path
         self.task_types = {"user_task": "UserTask"}
     
-    def _load_tasks_by_type(self, type: str):
+    def load_tasks_by_type(self, type: str) -> dict[str, BaseUserTask[Env] | BaseAttackTask[Env]]:
+        tasks_to_load = {}
         for task in self.user_tasks.values():
             if task.type == type:
-                self.user_tasks[task.ID] = task
+                tasks_to_load[task.ID] = task
+        return tasks_to_load
 
     def load_default_environment(self) -> Env:
         environment_text = read_suite_file(self.name, "environment.yaml", self.data_path)
@@ -128,10 +72,10 @@ class TaskSuite(Generic[Env]):
             self.task_types[task_type] = task_cls
 
     @lru_cache
-    def get_user_task_by_id(self, task_id: str) -> BaseUserTask[Env]:
-        """Get a user task by its ID."""
+    def get_task_by_id(self, task_id: str) -> BaseUserTask[Env] | BaseAttackTask[Env]:
+        """Get a task by its ID."""
         return self.user_tasks[task_id]
-    
+     
     def _get_task_number(self, task_cls: type[BaseUserTask], prefix: str) -> int:
         match = re.match(rf"{prefix}(\d+)", task_cls.__name__)
         if not match:
@@ -160,241 +104,135 @@ class TaskSuite(Generic[Env]):
             return task
         return register_task
     
+    def _transform_MASRunResult_to_dict(self, result: MASRunResult) -> dict[str, Any]:
+        """
+        A temporary function to transform MASRunResult to a dictionary for attack tasks security evaluation.
+        """
+        function_tool_calls: list[dict[str, Any]] = [
+            tool_call
+            for outer_list in result.tool_calls_dict.values()
+            for inner_list in outer_list
+            for tool_call in inner_list
+        ]
+
+        function_calls = [
+            FunctionCall(
+                function=tool_call.get("name"),
+                args=tool_call.get("arguments", {})
+            ) for tool_call in function_tool_calls
+        ]
+
+        error = " ".join(result.errors) if result.errors else ""
+
+        timed_out = result.appendix.get("timed_out", False) if result.appendix else False
+
+        execution_time = result.time_duration if result.time_duration else 0.0
+
+        return {
+            "function_calls": function_calls,
+            "final_output": result.final_output,
+            "error": error,
+            "timed_out": timed_out,
+            "execution_time": execution_time,
+        }
+    
     async def run_task_with_pipeline(
         self,
         multi_agent_system: MultiAgentSystem,
-        user_task: BaseUserTask[Env],
+        task: BaseUserTask[Env] | BaseAttackTask[Env],
+        attack_hooks: list[AttackHook] | None = None,
         environment: Env | None = None,
-        attack_hooks: list[AttackHook] | None = None
+        timeout: float | None = None,
     ) -> dict[str, Any]:
         
         # If no environment is provided, load the default environment
         if environment is None:
             environment = self.load_default_environment()
-        # Initialize the environment according to the task
-        if isinstance(user_task, BaseUserTask):
-            task_environment = user_task.init_environment(environment)
+        # Initialize the environment according to the task, some of the tasks may modify the environment before running
+        if isinstance(task, BaseUserTask):
+            task_environment = task.init_environment(environment)
         else:
             task_environment = environment
 
         # Create a copy of the environment before running the user task to then diff if needed
         pre_environment = task_environment.model_copy(deep=True)
-        if isinstance(user_task, BaseUserTask):
-            prompt = user_task.PROMPT
+
+        # Prepare the prompt from the task
+        if isinstance(task, BaseUserTask) or isinstance(task, BaseAttackTask):
+            prompt = task.PROMPT
         else:
-            raise ValueError(f"User task {user_task.ID} is not a valid BaseUserTask instance")
-
-        result: MASRunResult = await multi_agent_system.query(
-            input=prompt, 
-            context=task_environment,
-            attack_hooks=attack_hooks
-        )
-
-        if result.final_output is None:
-            warnings.warn(f"Model output was None for task {user_task.ID}")
-
-        utility = self._check_user_task_utility(
-            user_task,
-            result.final_output,
-            pre_environment,
-            task_environment,
-        )
-
-        return {
-            "utility": utility,
-            "MAS_run_result": result
-        }
-
-    def _check_security(
-        self,
-        task: BaseAttackTask,
-        model_output: str,
-        pre_environment: Env,
-        post_environment: Env,
-        result: dict
-    ) -> bool:
-        return task.security(model_output, pre_environment, post_environment, result)
-
-    def _evaluate_attack_hook_security(
-        self,
-        attack_hooks: list,
-        model_output: str,
-        pre_environment: Env,
-        post_environment: Env,
-        result: dict
-    ) -> list[bool]:
-        """
-        Evaluate security for regular user tasks that have attack hooks.
-        This method checks if any of the attack hooks succeeded in their attack.
-        
-        Each attack hook has its own captured pre/post environments based on when it executed.
-        This provides accurate security evaluation for each individual attack hook.
-        
-        Returns a list of boolean security results, one for each attack hook.
-        True means the attack succeeded, False means it was blocked.
-        """
-        security_results = []
-        
-        for attack_hook in attack_hooks:
-            try:
-                # Use the attack hook's own captured environments for accurate security evaluation
-                if hasattr(attack_hook, 'captured_pre_environment') and hasattr(attack_hook, 'captured_post_environment'):
-                    hook_pre_env = attack_hook.captured_pre_environment
-                    hook_post_env = attack_hook.captured_post_environment
-                    
-                    if hook_pre_env is not None and hook_post_env is not None:
-
-                        
-                        security_result = attack_hook.attack.security(
-                            model_output, hook_pre_env, hook_post_env, result
-                        )
-                        security_results.append(security_result)
-                    else:
-                        # Fallback to task-level environments if hook environments are missing
-                        print(f"Warning: Attack hook {attack_hook.attack.__class__.__name__} missing environments, using task-level fallback")
-                        security_result = attack_hook.attack.security(
-                            model_output, pre_environment, post_environment, result
-                        )
-                        security_results.append(security_result)
-                else:
-                    # Fallback to task-level environments if hook doesn't have captured environments
-                    print(f"Warning: Attack hook {attack_hook.attack.__class__.__name__} has no captured environments, using task-level fallback")
-                    security_result = attack_hook.attack.security(
-                        model_output, pre_environment, post_environment, result
-                    )
-                    security_results.append(security_result)
-                    
-            except Exception as e:
-                print(f"Warning: Security evaluation failed for {attack_hook.attack.__class__.__name__}: {e}")
-                security_results.append(False)
-        
-        return security_results
-
-    def _check_function_calls(
-        self,
-        task: BaseUserTask,
-        pre_environment: Env,
-        functions_stack_trace: Sequence[FunctionCall],
-        strict: bool = False,
-    ) -> bool:
-        expected_calls = task.ground_truth(pre_environment)
-        return matches_ground_truth(functions_stack_trace, expected_calls, strict)
-    
-    def _check_user_task_utility(
-        self,
-        task: BaseUserTask,
-        model_output: str | List[str],
-        pre_environment: Env,
-        task_environment: Env,
-    ) -> bool:
-        return task.utility(model_output, pre_environment, task_environment)
-    
-    def _check_user_attack_task_utility(
-        self,
-        task: BaseUserTask | BaseAttackTask,
-        model_output: str | List[str],
-        pre_environment: Env,
-        task_environment: Env,
-        result: dict
-    ) -> bool:
-        return task.security(model_output, pre_environment, task_environment, result)
-
-    def _check_attack_task_result(
-        self,
-        task: BaseAttackTask,
-        model_output: str | List[str],
-        pre_environment: Env,
-        task_environment: Env,
-        functions_stack_trace: Sequence[FunctionCall],
-        result: dict
-    ) -> bool:
-        security = self._check_user_attack_task_utility(
-            task,
-            model_output,
-            pre_environment,
-            task_environment,
-            result
-        )
-        function_calls_match = self._check_function_calls(
-            task,
-            pre_environment,
-            functions_stack_trace,
-        )
-        return security, function_calls_match
-
-    async def run_attack_task_with_pipeline(
-        self,
-        multi_agent_system: MultiAgentSystem,
-        user_task: BaseUserTask[Env],
-        environment: Env | None = None,
-        timeout: float | None = None
-    ) -> tuple[bool, bool]:
-        import time
-        
-        # If no environment is provided, load the default environment
-        if environment is None:
-            environment = self.load_default_environment()
-        # Initialize the environment according to the task
-        if isinstance(user_task, BaseAttackTask):
-            task_environment = user_task.init_environment(environment)
-        else:
-            task_environment = environment
-
-        # Create a copy of the environment before running the user task to then diff if needed
-        pre_environment = task_environment.model_copy(deep=True)
-        if isinstance(user_task, BaseAttackTask):
-            prompt = user_task.PROMPT
-        else:
-            raise ValueError(f"User task {user_task.ID} is not a valid BaseUserTask instance")
+            raise ValueError(f"Task {task.ID} is not a valid BaseUserTask or BaseAttackTask instance")
         
         # Record start time
         start_time = time.perf_counter()
 
         try:
             if timeout is not None:
-                result = await asyncio.wait_for(
+                result: MASRunResult = await asyncio.wait_for(
                     multi_agent_system.query(
                         input=prompt, 
-                        env=task_environment,
-                        attack_hooks=None
+                        context=task_environment,
+                        attack_hooks=attack_hooks
                     ),
                     timeout=timeout
                 )
             else:
-                result = await multi_agent_system.query(
+                result: MASRunResult = await multi_agent_system.query(
                     input=prompt, 
-                    env=task_environment,
-                    attack_hooks=None
+                    context=task_environment,
+                    attack_hooks=attack_hooks
                 )
         except asyncio.TimeoutError:
-            # Calculate execution time for timeout
-            execution_time = time.perf_counter() - start_time
-            warnings.warn(f"Task {user_task.ID} timed out after {timeout} seconds")
-            # Return a result structure with timeout indication
-            result = {
-                "final_output": None,
-                "function_calls": [],
-                "execution_time": execution_time,
-                "timed_out": True
+            error_message = f"Task {task.ID} timed out after {timeout} seconds"
+            warnings.warn(error_message)
+            result = MASRunResult(
+                final_output=None,
+                tool_calls_dict={},
+                inpout_calls_dict={},
+                output_dict={},
+                usage_dict={},
+                time_duration=time.perf_counter() - start_time,
+                errors=[error_message],
+                appendix={"timed_out": True},
+            )
+        except Exception as e:
+            error_message = f"Task {task.ID} failed with exception: {e} \n {traceback.format_exc()}"
+            warnings.warn(error_message)
+            result = MASRunResult(
+                final_output=None,
+                tool_calls_dict={},
+                inpout_calls_dict={},
+                output_dict={},
+                usage_dict={},
+                time_duration=time.perf_counter() - start_time,
+                errors=[error_message],
+            )
+
+        if result.final_output is None:
+            warnings.warn(f"Model output was None for task {task.ID}")
+
+        # Evaluate the task based on its type
+        if isinstance(task, BaseAttackTask):
+            results_dict = self._transform_MASRunResult_to_dict(result)
+            evaluation_results: bool | dict[str, Any] = task.security(
+                model_output=result.final_output,
+                pre_environment=pre_environment,
+                post_environment=task_environment,
+                result=results_dict
+            )
+        elif isinstance(task, BaseUserTask):
+            evaluation_results: bool | dict[str, Any] = task.utility(
+                model_output=result.final_output,
+                pre_environment=pre_environment,
+                post_environment=task_environment,
+            )
+
+        # Return the evaluation results, if it's a boolean wrap it in a dict with the MAS run result, else merge the MAS run result into the dict
+        if isinstance(evaluation_results, bool):
+            return {
+                "utility": evaluation_results,
+                "MAS_run_result": result
             }
         else:
-            # Calculate execution time for successful completion
-            execution_time = time.perf_counter() - start_time
-
-        if result["final_output"] is None:
-            warnings.warn(f"Model output was None for task {user_task.ID}")
-
-        result["execution_time"] = execution_time
-        result["timed_out"] = False
-
-        functions_stack_trace = result.get("function_calls", [])
-        security, function_calls_match = self._check_attack_task_result(
-            user_task,
-            result["final_output"] or [],
-            pre_environment,
-            task_environment,  # type: ignore
-            functions_stack_trace,
-            result
-        )
-        return security, function_calls_match, result
-    
+            evaluation_results["MAS_run_result"] = result
+            return evaluation_results
