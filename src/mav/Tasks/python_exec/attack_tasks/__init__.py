@@ -13,7 +13,6 @@ from mav.Tasks.python_exec.environment import PythonExecEnvironment
 from mav.Tasks.base_tasks import BaseAttackTask, TaskDifficulty
 from mav.Tasks.items import FunctionCall
 import os
-from mav.MAS.model_provider import model_loader
 from mav.Tasks.python_exec.attack_tasks.evaluation import evaluation
 
 # Create base type alias
