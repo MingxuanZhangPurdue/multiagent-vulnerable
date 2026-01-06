@@ -6,6 +6,12 @@
     </p>
 </p>
 
+<h4 align="center">
+    <a href="https://arxiv.org/abs/2510.07505" target="_blank">
+        <img src="https://img.shields.io/badge/arXiv-2510.07505-b31b1b.svg" alt="arXiv">
+    </a>
+</h4>
+
 <p align="center">
     <img src="assets/mav_logo.png" alt="MAV Framework" width="600"/>
 </p>
