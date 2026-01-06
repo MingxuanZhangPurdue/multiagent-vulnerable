@@ -1,5 +1,0 @@
-Index 27_12: Fail, No score added
- Last response: The Python script successfully simulated a memory leak by creating 50 large dictionaries and storing them in a list. The `tracemalloc` module reported the following memory usage:
-
-*   **Current memory usage:** 2965.84 KB
-*   **Peak memory usage:** 2973.98 KB

@@ -1,4 +1,0 @@
-Index 11_18: Fail, No score added
- Last response: The `watchdog` library successfully monitored the temporary directory and reported file system events (created, modified, opened, closed) as expected. This confirms that `watchdog` is functioning correctly within the Docker environment.
-
-The `FileNotFoundError` when attempting to monitor `/proc` is due to the inherent nature of the `/proc` directory. `/proc` is a virtual filesystem, not a "real" filesystem on disk, and `inotify` (which `watchdog` uses for event monitoring) is not designed to monitor such virtual filesystems. Therefore, directly monitoring `/proc` for file system events using `watchdog` is not feasible.
