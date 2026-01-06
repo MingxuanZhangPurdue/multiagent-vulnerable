@@ -1,15 +1,14 @@
 import sys
 from mav.MAS.framework import MultiAgentSystem
 from mav.Tasks.task_suite import TaskSuite
-from typing import Sequence
+from typing import Sequence, Callable
 from tqdm import tqdm
-from mav.MAS.attack_hook import AttackHook
 from mav.Tasks.base_tasks import BaseUserTask, BaseAttackTask
 
 async def benchmark_suite(
     multi_agent_system: MultiAgentSystem,
     suite: TaskSuite,
-    attack_hooks: list[AttackHook] | None = None,
+    attack_hooks: list[Callable] | None = None,
     IDs: Sequence[str] | None = None,
     task_type: str = "user_task",
     timeout: float = 200

@@ -13,7 +13,6 @@ from mav.Tasks.base_environment import TaskEnvironment
 from mav.Tasks.utils.yaml_loader import ImportLoader
 from mav.Tasks.base_tasks import BaseUserTask, BaseAttackTask
 from mav.MAS.framework import MultiAgentSystem, MASRunResult
-from mav.MAS.attack_hook import AttackHook
 from mav.items import FunctionCall
 
 Env = TypeVar("Env", bound=TaskEnvironment)
@@ -140,7 +139,7 @@ class TaskSuite(Generic[Env]):
         self,
         multi_agent_system: MultiAgentSystem,
         task: BaseUserTask[Env] | BaseAttackTask[Env],
-        attack_hooks: list[AttackHook] | None = None,
+        attack_hooks: list[Callable] | None = None,
         environment: Env | None = None,
         timeout: float | None = None,
     ) -> dict[str, Any]:
