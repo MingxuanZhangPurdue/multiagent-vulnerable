@@ -1,6 +1,14 @@
-# Multi-Agent Vulnerable (MAV) Framework
+<h1 align="center">
+    🤖 MAV Framework
+</h1>
+<p align="center">
+    <p align="center">Multi-Agent Vulnerable Framework - Testing multi-agent systems against security vulnerabilities and attack vectors
+    </p>
+</p>
 
-A framework for testing multi-agent systems against various security vulnerabilities and attack vectors.
+<p align="center">
+    <img src="assets/mav-logo.png" alt="MAV Framework" width="600"/>
+</p>
 
 ## Prerequisites
 
