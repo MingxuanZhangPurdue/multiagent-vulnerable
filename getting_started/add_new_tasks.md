@@ -224,9 +224,3 @@ class PrivacyTask3(BankingAttackTask):
 - **Clear Documentation**: Explain the attack vector and security implications
 - **Proper Security Validation**: `security()` returns `True` when the attack succeeds
 - **Ethical Boundaries**: Focus on testing security mechanisms, not creating actual harm
-
----
-
-## How to Add Attacks to Regular User Tasks
-
-Please check out our `attack_hooks.ipynb` notebook on how to inject attack hooks (functions) that can attack regular user tasks.
