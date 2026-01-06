@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-    <img src="assets/mav-logo.png" alt="MAV Framework" width="600"/>
+    <img src="assets/mav_logo.png" alt="MAV Framework" width="600"/>
 </p>
 
 ## Prerequisites
