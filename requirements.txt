@@ -9,3 +9,4 @@ numpy
 docker
 typing-extensions
 docstring-parser
+-e .
