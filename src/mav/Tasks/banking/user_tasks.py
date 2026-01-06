@@ -1,6 +1,6 @@
 from mav.Tasks.base_tasks import BaseUserTask
 from mav.Tasks.banking.environment import BankingEnvironment
-from mav.items import FunctionCall
+from mav.Tasks.items import FunctionCall
 from mav.Tasks.banking.task_suite import banking_task_suite as task_suite
 from mav.Tasks.task_combinator import TaskCombinator
 

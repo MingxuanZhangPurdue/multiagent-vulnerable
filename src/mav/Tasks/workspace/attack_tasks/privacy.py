@@ -2,7 +2,7 @@ from typing import ClassVar
 from mav.Tasks.base_tasks import BaseAttackTask, TaskDifficulty
 from mav.Tasks.workspace.task_suite import WorkspaceEnvironment
 from mav.Tasks.workspace.task_suite import workspace_task_suite as task_suite
-from mav.items import FunctionCall
+from mav.Tasks.items import FunctionCall
 from dataclasses import dataclass, field
 
 WorkspacePrivacyTask = BaseAttackTask[WorkspaceEnvironment]

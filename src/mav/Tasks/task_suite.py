@@ -8,12 +8,11 @@ from collections import defaultdict
 from functools import lru_cache
 from pathlib import Path
 from typing import Generic, TypeVar, Callable, Any
-from mav.items import FunctionCall
 from mav.Tasks.base_environment import TaskEnvironment
 from mav.Tasks.utils.yaml_loader import ImportLoader
 from mav.Tasks.base_tasks import BaseUserTask, BaseAttackTask
 from mav.MAS.framework import MultiAgentSystem, MASRunResult
-from mav.items import FunctionCall
+from mav.Tasks.items import FunctionCall
 
 Env = TypeVar("Env", bound=TaskEnvironment)
 

@@ -2,7 +2,7 @@ from collections.abc import Sequence
 from mav.Tasks.base_tasks import BaseUserTask, TaskDifficulty
 from mav.Tasks.slack.environment import SlackEnvironment
 from mav.Tasks.slack.task_suite import slack_task_suite as task_suite
-from mav.items import FunctionCall
+from mav.Tasks.items import FunctionCall
 from mav.Tasks.task_combinator import TaskCombinator
 
 SlackUserTask = BaseUserTask[SlackEnvironment]

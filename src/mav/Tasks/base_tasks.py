@@ -3,7 +3,7 @@ import enum
 from collections.abc import Sequence
 from typing import Generic, TypeVar
 from mav.Tasks.base_environment import TaskEnvironment
-from mav.items import FunctionCall
+from mav.Tasks.items import FunctionCall
 from typing import List, Any
 from mav.MAS.framework import MASRunResult
 

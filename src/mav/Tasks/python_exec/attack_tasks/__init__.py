@@ -11,7 +11,7 @@ from typing import ClassVar
 from mav.Tasks.python_exec.task_suite import python_exec_task_suite as task_suite, clear_container
 from mav.Tasks.python_exec.environment import PythonExecEnvironment
 from mav.Tasks.base_tasks import BaseAttackTask, TaskDifficulty
-from mav.items import FunctionCall
+from mav.Tasks.items import FunctionCall
 import os
 from mav.MAS.model_provider import model_loader
 from mav.Tasks.python_exec.attack_tasks.evaluation import evaluation
