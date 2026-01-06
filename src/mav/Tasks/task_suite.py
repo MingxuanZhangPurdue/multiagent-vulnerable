@@ -48,8 +48,8 @@ class TaskSuite(Generic[Env]):
             tools: A list of tool callables available to agents in the suite.
             data_path: Optional path to the suite's data files.
         """
-        self.name = name
-        self.environment_type = environment_type
+        self.name: str = name
+        self.environment_type: type[Env] = environment_type
         self.tools = tools
         self.user_tasks: dict[str, BaseUserTask[Env]] = defaultdict(dict)
         self.data_path = data_path

@@ -37,6 +37,13 @@ class Agent_Run_State:
 
     context: TaskEnvironment | None
 
+    model_response: ModelResponse | ResponsesAPIResponse | None
+
+    tool_calls: list[dict[str, Any]] | None
+
+    tool_calls_results: list[dict[str, Any]] | None
+
+
 def update_usage(
     total_usage: dict[str, Any],
     new_usage: dict[str, Any]
@@ -163,6 +170,7 @@ async def invoke_functions_from_responses(
             "type": "function_call_output",
             "output": output,
             "usage": tool_usage,
+            "name": tool_name,
         }
     
     # Execute all tool calls concurrently
@@ -386,6 +394,16 @@ class Runner:
 
         usage = {}
 
+        agent_run_state = Agent_Run_State(
+            tool_calls=None,
+            tool_calls_results=None,
+            model_response=None,
+            iteration=turn,
+            session=session,
+            agent=agent,
+            context=context
+        )
+
         if isinstance(input, str):
             await session.add_items([{"role": "user", "content": input}])
         elif isinstance(input, list):
@@ -395,13 +413,6 @@ class Runner:
         else:
             raise TypeError(f"Input must be a string, a dict, or a list, but got {type(input)}")
         
-        agent_run_state = Agent_Run_State(
-            iteration=turn,
-            session=session,
-            agent=agent,
-            context=context
-        )
-
         # event: run_start
         for attack_hook in attack_hooks or []:
             await cls._invoke_attack_hook(attack_hook, "run_start", agent_run_state, MAS_run_state)
@@ -426,16 +437,17 @@ class Runner:
                 **model_settings
             )
 
+            # event: after_model_call
+            agent_run_state.model_response = model_response
+            for attack_hook in attack_hooks or []:
+                await cls._invoke_attack_hook(attack_hook, "after_model_call", agent_run_state, MAS_run_state)
+
             tool_calls: list[ResponseFunctionToolCall] = []
             
             for item in model_response.output:
                 await session.add_items([item.to_dict()])
                 if item.type == "function_call":
                     tool_calls.append(item)
-
-            # event: after_model_call
-            for attack_hook in attack_hooks or []:
-                await cls._invoke_attack_hook(attack_hook, "after_model_call", agent_run_state, MAS_run_state)
 
             if model_response.usage is not None:
                 usage = update_usage(usage, {agent.model: model_response.usage.model_dump()})
@@ -444,11 +456,21 @@ class Runner:
             if not tool_calls:
                 break
 
+            # event: before_tool_calls
+            agent_run_state.tool_calls = tool_calls
+            for attack_hook in attack_hooks or []:
+                await cls._invoke_attack_hook(attack_hook, "before_tool_calls", agent_run_state, MAS_run_state)
+
             intermediate_messages = await invoke_functions_from_responses(
                 tool_calls=tool_calls,  
                 tool_mapping=agent.tool_mapping,
                 context=context,
             )
+
+            # event: after_tool_calls
+            agent_run_state.tool_calls_results = intermediate_messages
+            for attack_hook in attack_hooks or []:
+                await cls._invoke_attack_hook(attack_hook, "after_tool_calls", agent_run_state, MAS_run_state)
 
            # Create a mapping of call_id to output from intermediate messages
             output_map = {msg["call_id"]: msg.get("output") for msg in intermediate_messages}
@@ -467,15 +489,17 @@ class Runner:
                 # if usage is not None add to total usage
                 if item.get("usage"):
                     usage = update_usage(usage, item["usage"])
-                # Need to remove usage from item before adding to session
+                # Need to remove usage and name from item before adding to session
                 if "usage" in item:
                     item.pop("usage")
+                if "name" in item:
+                    item.pop("name")
 
             await session.add_items(intermediate_messages)
 
-            # event: after_tool_calls
+            # event: iteration_end
             for attack_hook in attack_hooks or []:
-                await cls._invoke_attack_hook(attack_hook, "after_tool_calls", agent_run_state, MAS_run_state)
+                await cls._invoke_attack_hook(attack_hook, "iteration_end", agent_run_state, MAS_run_state)
 
             turn += 1
             agent_run_state.iteration = turn
@@ -548,6 +572,16 @@ class Runner:
 
         usage = {}
 
+        agent_run_state = Agent_Run_State(
+            tool_calls=None,
+            tool_calls_results=None,
+            model_response=None,
+            iteration=turn,
+            session=session,
+            agent=agent,
+            context=context
+        )
+
         if isinstance(input, str):
             await session.add_items([{"role": "user", "content": input}])
         elif isinstance(input, list):
@@ -556,13 +590,6 @@ class Runner:
             await session.add_items([input])
         else:
             raise TypeError(f"Input must be a string, a dict, or a list, but got {type(input)}")
-        
-        agent_run_state = Agent_Run_State(
-            iteration=turn,
-            session=session,
-            agent=agent,
-            context=context
-        )
         
         # event: run_start
         for attack_hook in attack_hooks or []:
@@ -588,11 +615,12 @@ class Runner:
                 **model_settings
             )
 
-            await session.add_items([model_response.choices[0].message.to_dict()])
-
             # event: after_model_call
+            agent_run_state.model_response = model_response
             for attack_hook in attack_hooks or []:
                 await cls._invoke_attack_hook(attack_hook, "after_model_call", agent_run_state, MAS_run_state)
+
+            await session.add_items([model_response.choices[0].message.to_dict()])
 
             tool_calls = model_response.choices[0].message.tool_calls
 
@@ -603,11 +631,21 @@ class Runner:
             if not tool_calls:
                 break
 
+            # event: before_tool_calls
+            agent_run_state.tool_calls = tool_calls
+            for attack_hook in attack_hooks or []:
+                await cls._invoke_attack_hook(attack_hook, "before_tool_calls", agent_run_state, MAS_run_state)
+
             intermediate_messages = await invoke_functions_from_completion(
                 tool_calls=tool_calls,  
                 tool_mapping=agent.tool_mapping,
                 context=context,
             )
+
+            # event: after_tool_calls
+            agent_run_state.tool_calls_results = intermediate_messages
+            for attack_hook in attack_hooks or []:
+                await cls._invoke_attack_hook(attack_hook, "after_tool_calls", agent_run_state, MAS_run_state)
 
             # Create a mapping of tool_call_id to content from intermediate messages
             content_map = {msg["tool_call_id"]: msg.get("content") for msg in intermediate_messages}
@@ -632,9 +670,9 @@ class Runner:
 
             await session.add_items(intermediate_messages)
 
-            # event: after_tool_calls
+            # event: iteration_end
             for attack_hook in attack_hooks or []:
-                await cls._invoke_attack_hook(attack_hook, "after_tool_calls", agent_run_state, MAS_run_state)
+                await cls._invoke_attack_hook(attack_hook, "iteration_end", agent_run_state, MAS_run_state)
 
             turn += 1
             agent_run_state.iteration = turn
