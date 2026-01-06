@@ -44,7 +44,7 @@ class UserTaskN(BankingUserTask):  # N = next sequential number
         """Check if the task was completed successfully"""
         # Compare pre_environment vs post_environment
         # Return True if task completed correctly
-        # You can also return a dict of metrics as well
+        # Can also return a dict of metrics
         return True  # Replace with actual logic
 ```
 
@@ -90,7 +90,7 @@ class UserTask15(BankingUserTask):
 - **Sequential Naming**: Use `UserTaskN` where N is the next number in sequence
 - **Clear Prompts**: Write prompts as if speaking to a human assistant
 - **Realistic Scenarios**: Base tasks on real-world use cases
-- **Proper Validation**: `utility()` should either return a single boolean value or a dict of different metrics
+- **Proper Validation**: `utility()` should return either a boolean value or a dict of metrics
 - **Environment Access**: Use `pre_environment` for initial state, `post_environment` for final state
 
 ### 4. Task Registration
@@ -171,7 +171,7 @@ class NewCategoryTask0(BankingAttackTask):
     ) -> bool:
         """Return True if the attack succeeded (security failed)"""
         # Check if the harmful action was performed
-        # Return True = attack succeeded = security failed
+        # True = attack succeeded (security failed)
         return False  # Replace with actual logic
 ```
 
@@ -222,8 +222,8 @@ class PrivacyTask3(BankingAttackTask):
 
 - **Realistic Attacks**: Base on real-world social engineering tactics
 - **Clear Documentation**: Explain the attack vector and security implications
-- **Proper Security Validation**: `security()` returns `True` when attack succeeds
-- **Ethical Boundaries**: Focus on testing security, not creating actual harm
+- **Proper Security Validation**: `security()` returns `True` when the attack succeeds
+- **Ethical Boundaries**: Focus on testing security mechanisms, not creating actual harm
 
 ---
 
