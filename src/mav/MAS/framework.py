@@ -1,481 +1,449 @@
+from __future__ import annotations
 import json
 import inspect
-import warnings
-from agents import (
+import logging
+import traceback
+import time
+
+from mav.MAS.agents import (
     Agent,
-    Runner, 
-    SQLiteSession,
-    TResponseInputItem,
-    ModelResponse
+    Runner,
+    InMemorySession,
+    RunResult
 )
 
-from typing import Any, Literal, get_args
+from typing import Any, Literal, get_args, Awaitable, Callable
 from pydantic import BaseModel
+from dataclasses import dataclass, field
 
 from mav.MAS.terminations import BaseTermination
-from mav.items import FunctionCall
 from mav.Tasks.base_environment import TaskEnvironment
-from mav.MAS.terminations import BaseTermination
-from mav.MAS.attack_hook import execute_attacks, AttackHook
-from mav.Attacks.attack import AttackComponents
 
-class MultiAgentSystem:
+from mav.MAS.agents.run import update_usage
 
-    RunnerType = Literal["handoffs", "sequential", "planner_executor"]
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(name)s - %(levelname)s - %(message)s',
+    handlers=[logging.StreamHandler()]
+)
+logger = logging.getLogger(__name__)
 
-    def __init__(
-        self,
-        agents: Agent | list[Agent],
-        runner: RunnerType,
-        termination_condition: list[BaseTermination] | None = None,
-        max_iterations: int = 10,
-        enable_executor_memory: bool = True,
-        shared_memory: bool = False,
-        use_memory: bool = True,
-    ):
-        if runner == "handoffs" and not isinstance(agents, Agent):
-            raise ValueError("When using 'handoffs' runner, a single agent must be passed!")
-        elif runner == "sequential":
-            if not isinstance(agents, list) or not all(isinstance(agent, Agent) for agent in agents):
-                raise ValueError("When using 'sequential' runner, a list of agents of type agents.Agent must be passed!")
-            if not len(agents) >= 1:
-                raise ValueError("When using 'sequential' runner, at least one agent must be passed!")
-        elif runner == "planner_executor":
-            if not isinstance(agents, list) or not all(isinstance(agent, Agent) for agent in agents):
-                raise ValueError("When using 'planner_executor' runner, a list of agents of type agents.Agent must be passed!")
-            if not len(agents) == 2:
-                raise ValueError("When using 'planner_executor' runner, exactly two agents must be passed (planner and executor)!")
-            if termination_condition is None:
-                raise ValueError("When using 'planner_executor' runner, a termination condition must be provided!")
-        elif runner not in get_args(self.RunnerType):
-            raise ValueError(f"Invalid runner specified. Supported runners are {get_args(self.RunnerType)}")
+@dataclass
+class MASRunResult:
 
-        self.agents = agents
-        self.runner = runner
-        self.termination_condition = termination_condition
+    final_output: Any
+    """The final output produced by the MAS after completing its run."""
 
-        # planner_executor specific parameters
-        self.max_iterations = max_iterations
-        self.enable_executor_memory = enable_executor_memory
-        self.shared_memory = shared_memory
-        self.use_memory = use_memory
+    usage_dict: dict[str, dict[str, Any]]
+    """A dictionary containing aggregated usage for each agent during the MAS run."""
 
-    async def query(
-        self,
-        input: str | list[TResponseInputItem],
-        env: TaskEnvironment,
-        attack_hooks: list[AttackHook] | None = None,
-    ):
-        
-        if self.runner == "handoffs":
-            return await self.run_handoffs(input, env, attack_hooks)
-        elif self.runner == "sequential":
-            return await self.run_sequential(input, env, attack_hooks)
-        elif self.runner == "planner_executor":
-            return await self.run_planner_executor(input, env, attack_hooks)
+    tool_calls_dict: dict[str, list[list[dict[str, Any]]]]
+    """A dictionary containing tool calls made by each agent at each iteration during the MAS run."""
 
-    async def run_handoffs(
-        self,
-        input: str | list[TResponseInputItem],
-        env: TaskEnvironment,
-        attack_hooks: list[AttackHook] | None = None,
-    ) -> dict[str, Any]:
-        
-        """
-        Runs the agents in a handoff manner (if there are any)
-        It will also work with a single agent.
+    input_list_dict: dict[str, list[list[dict[str, Any]]]]
+    """A dictionary containing the list of input items provided to each agent at each iteration during the MAS run."""
 
-        Memory:
-        - If use_memory is True, we use a shared memory for all agents.
-        - If use_memory is False, we do not use memory.
-        """
-        if not isinstance(self.agents, Agent):
-            raise ValueError("When using 'handoffs' runner, a single agent must be passed!")
-        
-        print(f"Running handoffs with input: {input}")
+    output_dict: dict[str, list[Any]]
+    """A dictionary containing the final output of each agent runner result at each iteration during the MAS run."""
 
-        usage: dict[str, list[dict[str, int]]] = {
-            self.agents.name: []
-        }
+    time_duration: float
+    """The total time duration taken for the MAS run."""
 
-        tool_calls: list[dict[str, Any]] = []
-        
-        input_list_dict: dict[str, list[dict[str, Any]]] = {
-            self.agents.name: []
-        }
+    errors: list[str] | None = None
 
-        attack_components = AttackComponents(
-            input=input,
-            final_output=None,
-            memory_dict={},
-            agent_dict={self.agents.name: self.agents},
-            env=env
-        )
+    appendix: dict[str, Any] = field(default_factory=dict)
+    """An optional dictionary containing any additional information about the MAS run."""
 
-        if self.use_memory:
-            memory = SQLiteSession(session_id="handoff_memory")
-        else:
-            memory = None
+    def __post_init__(self):
+        if not self.errors:
+            self.errors = None
 
-        if attack_hooks is not None:
-            execute_attacks(attack_hooks=attack_hooks, event_name="on_agent_start", iteration=0, components=attack_components)
-
-        print("Running handoffs")
-
-        try:
-            agent_result = await Runner.run(
-                starting_agent=self.agents,
-                input=attack_components.input,
-                context=env,
-                session=memory,
-                max_turns=20  # Increased from default 10 to 20
-            )
-        except Exception as e:
-            return {
-                "final_output": None,
-                "usage": usage,
-                "function_calls": self.cast_to_function_calls(tool_calls),
-                "error": str(e),
-                "input_list_dict": input_list_dict
-            }
-
-        attack_components.final_output = agent_result.final_output
-
-        if attack_hooks is not None:
-            execute_attacks(attack_hooks=attack_hooks, event_name="on_agent_end", iteration=0, components=attack_components)
-
-        usage[self.agents.name].append(self.extract_usage(agent_result.raw_responses))
-
-        print("Getting response from handoffs")
-
-        for response in agent_result.raw_responses:
-            for item in response.output:
-                if item.type == "function_call":
-                    tool_calls.append({
-                        "tool_name": item.name,
-                        "tool_arguments": item.arguments
-                    })
-
-        input_list_dict[self.agents.name].extend(agent_result.to_input_list())
-
-        return {
-            "final_output": attack_components.final_output,
-            "usage": usage,
-            "function_calls": self.cast_to_function_calls(tool_calls),
-            "input_list_dict": input_list_dict
-        }
-
-    async def run_sequential(
-        self,
-        input: str | list[TResponseInputItem],
-        env: TaskEnvironment,
-        attack_hooks: list[AttackHook] | None = None,
-        tool_calls_to_extract: list[str] | None = None
-    ) -> dict[str, Any]:
-        
-        """
-        Runs the agents in a sequential manner:
-            - We create a separate memory for each agent to store their results.
-            - It assumes the output of each agent will be used as the input for the next agent.
-            - If the last agent does not produce a final output, the initial input will be used as the final output.
-            - The final output will be the output of the last agent in the sequence after the termination condition is met.
-            - The results of the last agent will be used to determine if the termination condition is met.
-
-        Memory:
-        - If shared_memory are True, we use a shared memory for all agents.
-        - If use_memory is True and shared_memory are False, we use a separate memory for each agent.
-        - Otherwise, we do not use memory.
-        """
-        if not isinstance(self.agents, list):
-            raise ValueError("When using 'sequential' runner, a list of agents must be passed!")
-        
-        usage: dict[str, list[dict[str, int]]] = {
-            agent.name: [] for agent in self.agents
-        }
-        
-        tool_calls: list[dict[str, Any]] = []
-
-        attack_components = AttackComponents(
-            input=input,
-            final_output=None,
-            memory_dict={},
-            agent_dict={agent.name: agent for agent in self.agents},
-            env=env
-        )
-
-        iteration = 0
-
-        if self.shared_memory:
-            memory = SQLiteSession(session_id="sequential_memory")
-        elif self.use_memory:
-            memory = {}
-            for agent in self.agents:
-                memory[agent.name] = SQLiteSession(session_id=f"sequential_memory_{agent.name}")
-        else:
-            memory = None
-
-        for agent in self.agents:
-
-            if attack_hooks is not None:
-                execute_attacks(attack_hooks=attack_hooks, event_name="on_agent_start", iteration=iteration, components=attack_components)
-
-            try:
-                if self.shared_memory:
-                    agent_result = await Runner.run(
-                        starting_agent=agent,
-                        input=attack_components.input,
-                        context=env,
-                        session=memory,
-                        max_turns=20  # Increased from default 10 to 20
-                    )
-                elif self.use_memory:
-                    agent_result = await Runner.run(
-                        starting_agent=agent,
-                        input=attack_components.input,
-                        context=env,
-                        session=memory[agent.name],
-                        max_turns=20  # Increased from default 10 to 20
-                    )
-                else:
-                    agent_result = await Runner.run(
-                        starting_agent=agent,
-                        input=attack_components.input,
-                        context=env,
-                        max_turns=20  # Increased from default 10 to 20
-                    )
-            except Exception as e:
-                return {
-                    "final_output": None,
-                    "usage": usage,
-                    "function_calls": self.cast_to_function_calls(tool_calls),
-                    "error": str(e)
-                }
-
-            attack_components.final_output = agent_result.final_output
-
-            if attack_hooks is not None:
-                execute_attacks(attack_hooks=attack_hooks, event_name="on_agent_end", iteration=iteration, components=attack_components)
-
-            usage[agent.name].append(self.extract_usage(agent_result.raw_responses))
-
-            if agent.name in tool_calls_to_extract or tool_calls_to_extract is None:
-                for response in agent_result.raw_responses:
-                    for item in response.output:
-                        if item.type == "function_call":
-                            tool_calls.append({
-                                "tool_name": item.name,
-                                "tool_arguments": item.arguments
-                            })
-
-            # The final output from the current agent will be used as input for the next agent
-            attack_components.input = agent_result.final_output
-
-            iteration += 1
-
-        return {
-            "final_output": attack_components.final_output,
-            "usage": usage,
-            "function_calls": self.cast_to_function_calls(tool_calls)
-        }
+async def run_orchestrator_worker(
+    MAS: MultiAgentSystem,
+    input: str | list[dict[str, Any]],
+    context: TaskEnvironment | None = None,
+    attack_hooks: list[Callable] | None = None,
+    # runner specific parameters
+    endpoint_orchestrator: Literal["completion", "responses"] | None = None,
+    max_orchestrator_iterations: int = 10,
+) -> MASRunResult:
     
-    async def run_planner_executor(
-        self,
-        input: str | list[TResponseInputItem],
-        env: TaskEnvironment,
-        attack_hooks: list[AttackHook] | None = None,
-    ) -> dict[str, Any]:
+    """
+    Run agents in a orchestrator-worker manner:
+        - The given agent is assumed to be the orchestrator, which delegates tasks and spawns worker agents as needed.
+        - The worker agents perform the tasks assigned by the orchestrator.
+        - The worker agent should be pre-registered as tools that the orchestrator can call.
+        - The process continues until no tool calls are made by the orchestrator or the maximum number of iterations is reached.
+        - The final output will be the output of the orchestrator after the termination condition is met.
+
+    Args:
+        MAS: The MultiAgentSystem instance containing the agents and configuration.
+        input: The initial input to the orchestrator agent.
+        context: The task environment in which the agents operate.
+        attack_hooks: Optional list of callable to apply attacks during execution.
+        endpoint_orchestrator: The litellm endpoint type to use for the agent runner, either "completion" or "responses".
+        max_orchestrator_iterations: Maximum number of iterations for the orchestrator agent.
+    """
+    if not isinstance(MAS.agents, Agent):
+        raise ValueError("When using 'orchestrator_worker' runner, a single agent must be passed!")
+    
+    logger.info(f"Running orchestrator_worker MAS with input: {input} and endpoint: {endpoint_orchestrator}. Attack hooks passed: {attack_hooks is not None}")
+
+    start_time = time.monotonic()
+
+    usage_dict: dict[str, dict[str, Any]] = {
+        MAS.agents.name: {}
+    }
+    
+    input_list_dict: dict[str, list[list[dict[str, Any]]]] = {
+        MAS.agents.name: []
+    }
+
+    tool_calls_dict: dict[str, list[list[dict[str, Any]]]] = {
+        MAS.agents.name: []
+    }
+
+    output_dict: dict[str, list[Any]] = {
+        MAS.agents.name: []
+    }
+
+    errors = []
+
+    try:
+        agent_result: RunResult = await Runner.run(
+            agent=MAS.agents,
+            input=input,
+            context=context,
+            max_turns=max_orchestrator_iterations,
+            attack_hooks=attack_hooks,
+            endpoint=endpoint_orchestrator
+        )
+    except Exception as e:
+        error_message = f"Error during MAS orchestrator_worker run: {e} \n{traceback.format_exc()}"
+        logger.error(error_message)
+        errors.append(error_message)
+        return MASRunResult(
+            final_output=None,
+            usage_dict=usage_dict,
+            tool_calls_dict=tool_calls_dict,
+            input_list_dict=input_list_dict,
+            output_dict=output_dict,
+            time_duration=time.monotonic() - start_time,
+            errors=errors
+        )
+
+    usage_dict[MAS.agents.name] = update_usage(usage_dict[MAS.agents.name], agent_result.usage)
+
+    tool_calls_dict[MAS.agents.name].append(agent_result.tool_calls)
+
+    input_list_dict[MAS.agents.name].append(agent_result.input_items)
+
+    output_dict[MAS.agents.name].append(agent_result.final_output)
+
+    logger.info("orchestrator_worker MAS run completed.")
+
+    return MASRunResult(
+        final_output=agent_result.final_output,
+        usage_dict=usage_dict,
+        tool_calls_dict=tool_calls_dict,
+        input_list_dict=input_list_dict,
+        output_dict=output_dict,
+        time_duration=time.monotonic() - start_time
+    )
+
+async def run_planner_executor(
+        MAS: MultiAgentSystem,
+        input: str | list[dict[str, Any]],
+        context: TaskEnvironment | None = None,
+        attack_hooks: list[Callable] | None = None,
+        # runner specific parameters
+        endpoint_planner: Literal["completion", "responses"] | None = None,
+        endpoint_executor: Literal["completion", "responses"] | None = None,
+        max_iterations: int = 5,
+        max_planner_iterations: int = 10,
+        max_executor_iterations: int = 10,
+        enable_planner_memory: bool = True,
+        enable_executor_memory: bool = False,
+        shared_memory: bool = False,
+        termination_condition: BaseTermination | None = None,
+    ) -> MASRunResult:
         """
         Runs the agents in a planner-executor manner:
             - The first agent is assumed to be the planner, which generates a plan or output to be executed by the second agent (executor).
             - The second agent (executor) takes the output from the planner and executes it.
-            - The process continues until the termination condition is met or the maximum number of iterations is reached.
+            - The process continues until the termination condition is met or the maximum number of iterations (max_iterations) is reached.
             - The final output will be the output of the planner after the termination condition is met.
-        
-        Memory:
-        - If use_memory is True, then the planner has memory.
-        - If shared_memory is True, then the executor and planner has memory.
-        - If enable_executor_memory is True, then the executor has memory.
+        Session memory configuration:
+        - If enable_planner_memory is True, then the planner has session memory. This should be set to True if max_iterations > 1, otherwise the planner will not remember any previous iterations.
+        - If enable_executor_memory is True, then the executor has session memory.
+        - If shared_memory is True, then both planner and executor share the same session memory. When this is set to True, both enable_planner_memory and enable_executor_memory must be True, otherwise it will not have any effect.
         - Otherwise, we do not use memory.
-        """
 
-        # Usage tracking for both agents, we track the usage of each agent on each iteration
-        usage: dict[str, list[dict[str, int]]] = {
-            "planner": [
-            ],
-            "executor": [
-            ]
+        Args:
+            MAS: The MultiAgentSystem instance containing the agents and configuration.
+            input: The initial input to the planner agent.
+            context: The task environment in which the agents operate.
+            attack_hooks: Optional list of callable to apply attacks during execution.
+            endpoint_planner: The litellm endpoint type to use for the planner agent runner, either "completion" or "responses".
+            endpoint_executor: The litellm endpoint type to use for the executor agent runner, either "completion" or "responses".
+            max_iterations: Maximum number of planner-executor iterations.
+            max_planner_iterations: Maximum number of iterations for the planner agent per turn.
+            max_executor_iterations: Maximum number of iterations for the executor agent per turn.
+            enable_planner_memory: Whether to enable session memory for the planner agent.
+            enable_executor_memory: Whether to enable session memory for the executor agent.
+            shared_memory: Whether to use shared session memory between planner and executor agents.
+            termination_condition: An optional termination condition to determine when to stop the planner-executor loop.
+        """
+        if not isinstance(MAS.agents, list) or not all(isinstance(agent, Agent) for agent in MAS.agents):
+            raise ValueError("When using 'planner_executor' runner, a list of agents of type mav.MAS.agents.Agent must be passed!")
+        if not len(MAS.agents) == 2:
+            raise ValueError("When using 'planner_executor' runner, exactly two agents must be passed (planner and executor) and in that order!")
+        
+        start_time = time.monotonic()
+        
+        logger.info(f"Running planner-executor MAS with input: {input} and endpoint_planner: {endpoint_planner}, endpoint_executor: {endpoint_executor}. Attack hooks passed: {attack_hooks is not None}")
+
+        usage_dict: dict[str, dict[str, int]] = {
+            "planner": {},
+            "executor": {}
         }
 
-        # Assuming the first agent is the planner and the second is the executor
-        planner = self.agents[0]
-        executor = self.agents[1]
-
-        # Initialize the iteration counter
-        iteration = 0
-
-        # Memory setup
-        if self.use_memory:
-            planner_memory = SQLiteSession(session_id="planner_memory")
-        else:
-            planner_memory = None
-            if self.max_iterations > 1:
-                warnings.warn("Max iterations > 1 but use_memory is False. The planner will not have memory between iterations.")
-
-        if self.enable_executor_memory:
-            # Not sure if it is a good idea to have the executor memory the same as the planner memory
-            if self.shared_memory:
-                executor_memory = planner_memory
-                warnings.warn("Executor memory is shared with planner memory. Double check if this is intended.")
-            else:
-                executor_memory = SQLiteSession(session_id="executor_memory")
-        else:
-            executor_memory = None
-
-        # All meaningful tool calls will be executed and only executed by the executor agent
-        executor_tool_calls: list[dict[str, Any]] = []
-
-        # A dictionary to store the input list for each agent
-        input_list_dict: dict[str, list[dict[str, Any]]] = {
+        tool_calls_dict: dict[str, list[list[dict[str, Any]]]] = {
             "planner": [],
             "executor": []
         }
 
-        # An object to store the components for attack hooks
-        attack_components = AttackComponents(
-            input={
-                "planner": input,
-                "executor": None
-            },
-            final_output={
-                "planner": None,
-                "executor": None
-            },
-            memory_dict={
-                "planner": planner_memory,
-                "executor": executor_memory
-            },
-            agent_dict={
-                "planner": planner,
-                "executor": executor
-            },
-            env=env
-        )
+        input_list_dict: dict[str, list[list[dict[str, Any]]]] = {
+            "planner": [],
+            "executor": []
+        }
 
-        while iteration < self.max_iterations:  # Prevent infinite loops
+        output_dict: dict[str, list[Any]] = {
+            "planner": [],
+            "executor": []
+        }
 
-            if attack_hooks is not None:
-                execute_attacks(attack_hooks=attack_hooks, event_name="on_planner_start", iteration=iteration, components=attack_components)
+        errors = []
+
+        # Assuming the first agent is the planner and the second is the executor
+        planner = MAS.agents[0]
+        executor = MAS.agents[1]
+
+        # Initialize the iteration counter
+        iteration = 0
+
+        # Session memory configuration
+        if enable_planner_memory:
+            planner_memory = InMemorySession(session_id="planner_memory")
+        else:
+            planner_memory = None
+            if max_iterations > 1:
+                logger.warning("Max iterations > 1 but enable_planner_memory is False. The planner will not remember any previous iterations. Are you sure this is intended?")
+
+        if enable_executor_memory:
+            executor_memory = InMemorySession(session_id="executor_memory")
+        else:
+            executor_memory = None
+
+        if shared_memory:
+            shared_session = InMemorySession(session_id="shared_memory")
+            planner_memory = shared_session
+            executor_memory = shared_session
+
+        planner_input = input
+
+        executor_input = None
+
+        MAS_final_output = None
+
+        MAS_run_state = {
+            "iteration": iteration,
+            "planner_input": planner_input,
+            "executor_input": executor_input,
+            "planner_memory": planner_memory,
+            "executor_memory": executor_memory,
+            "context": context
+        }
+
+        # event: mas_run_start
+        for attack_hook in attack_hooks or []:
+            await attack_hook(event="mas_run_start", MAS_run_state=MAS_run_state, agent_run_state=None)
+
+        while iteration < max_iterations:
+            
+            # Planner turn
+
+            # event: planner_turn_start
+            for attack_hook in attack_hooks or []:
+                await attack_hook(event="planner_turn_start", MAS_run_state=MAS_run_state, agent_run_state=None)
+            try:
+                planner_result: RunResult = await Runner.run(
+                    agent=planner,
+                    input=MAS_run_state["planner_input"],
+                    context=context,
+                    attack_hooks=attack_hooks,
+                    session=planner_memory,
+                    max_turns=max_planner_iterations,
+                    endpoint=endpoint_planner,
+                    MAS_run_state=MAS_run_state
+                )
+            except Exception as e:
+                error_message = f"Error during MAS planner_executor run at iteration {iteration} for the planner: {e} \n{traceback.format_exc()}"
+                logger.error(error_message)
+                errors.append(error_message)
+                break
+            
+            # Update usage, tool calls, output, and input items for planner
+            usage_dict["planner"] = update_usage(usage_dict["planner"], planner_result.usage)
+            tool_calls_dict["planner"].append(planner_result.tool_calls)
+            input_list_dict["planner"].append(planner_result.input_items)
+            output_dict["planner"].append(planner_result.final_output)
+            
+            MAS_final_output = planner_result.final_output
+
+            if termination_condition and termination_condition(iteration=iteration, input_items_dict=planner_result.input_items, output_dict=output_dict, env=context):
+                break
+            
+            # Executor turn
 
             try:
-                planner_result = await Runner.run(
-                    starting_agent=planner,
-                    input=attack_components.input["planner"],
-                    context=env,
-                    session=planner_memory,
-                    max_turns=20  # Increased from default 10 to 20
-                )
-                input_list_dict["planner"] = planner_result.to_input_list()
+                executor_input = MAS._agent_output_to_agent_input(planner_result.final_output)
+                MAS_run_state["executor_input"] = executor_input
             except Exception as e:
-                return {
-                    "final_output": None,
-                    "usage": usage,
-                    "function_calls": self.cast_to_function_calls(executor_tool_calls),
-                    "error": str(e),
-                    "input_list_dict": input_list_dict
-                }
+                error_message = f"Error casting planner output to executor input at iteration {iteration}: {e} \n{traceback.format_exc()}"
+                logger.error(error_message)
+                errors.append(error_message)
+                break
+            
+            try:
+                # event: executor_turn_start
+                for attack_hook in attack_hooks or []:
+                    await attack_hook(event="executor_turn_start", MAS_run_state=MAS_run_state, agent_run_state=None)
+                executor_result: RunResult = await Runner.run(
+                    agent=executor,
+                    input=MAS_run_state["executor_input"],
+                    context=context,
+                    session=executor_memory,
+                    max_turns=max_executor_iterations,
+                    endpoint=endpoint_executor,
+                    MAS_run_state=MAS_run_state,
+                    attack_hooks=attack_hooks
+                )
+            except Exception as e:
+                error_message = f"Error during MAS planner_executor run at iteration {iteration} for executor: {e} \n{traceback.format_exc()}"
+                logger.error(error_message)
+                errors.append(error_message)
+                break
+            
+            # Update usage, tool calls, and input items for executor
+            usage_dict["executor"] = update_usage(usage_dict["executor"], executor_result.usage)
+            tool_calls_dict["executor"].append(executor_result.tool_calls)
+            input_list_dict["executor"].append(executor_result.input_items)
+            output_dict["executor"].append(executor_result.final_output)
 
-            attack_components.final_output["planner"] = planner_result.final_output
-
-            usage["planner"].append(self.extract_usage(planner_result.raw_responses))
-
-            if self.termination_condition(iteration=iteration, results=planner_result.to_input_list()):
+            try:
+                planner_input = MAS._agent_output_to_agent_input(executor_result.final_output)
+                MAS_run_state["planner_input"] = planner_input
+            except Exception as e:
+                error_message = f"Error casting executor output to planner input at iteration {iteration}: {e} \n{traceback.format_exc()}"
+                logger.error(error_message)
+                errors.append(error_message)
                 break
 
-            attack_components.input["executor"] = self.cast_output_to_input(planner_result.final_output)
-
-            if attack_hooks is not None:
-                execute_attacks(attack_hooks=attack_hooks, event_name="on_executor_start", iteration=iteration, components=attack_components)
-
-            try:
-                executor_result = await Runner.run(
-                    executor,
-                    input=attack_components.input["executor"],
-                    context=env,
-                    session=executor_memory,
-                    max_turns=20  # Increased from default 10 to 20
-                )
-                input_list_dict["executor"] = executor_result.to_input_list()
-            except Exception as e:
-                return {
-                    "final_output": None,
-                    "usage": usage,
-                    "function_calls": self.cast_to_function_calls(executor_tool_calls),
-                    "error": str(e),
-                    "input_list_dict": input_list_dict
-                }
-
-            attack_components.final_output["executor"] = executor_result.final_output
-
-            usage["executor"].append(self.extract_usage(executor_result.raw_responses))
-
-            for response in executor_result.raw_responses:
-                    for item in response.output:
-                        if item.type == "function_call":
-                             executor_tool_calls.append({
-                                "tool_name": item.name,
-                                "tool_arguments": item.arguments
-                            })
-
-            attack_components.input["planner"] = self.cast_output_to_input(executor_result.final_output)
-
-            if attack_hooks is not None:
-                execute_attacks(attack_hooks=attack_hooks, event_name="on_executor_end", iteration=iteration, components=attack_components)
-
             iteration += 1
+            MAS_run_state["iteration"] = iteration
 
-        return {
-            "final_output": attack_components.final_output["planner"],
-            "usage": usage,
-            "function_calls": self.cast_to_function_calls(executor_tool_calls),
-            "input_list_dict": input_list_dict
-        }
+        # event: mas_run_end
+        for attack_hook in attack_hooks or []:
+            await attack_hook(event="mas_run_end", MAS_run_state=MAS_run_state, agent_run_state=None)
 
-    def extract_usage(
+        logger.info("planner_executor MAS run completed.")
+
+        return MASRunResult(
+            final_output=MAS_final_output,
+            usage_dict=usage_dict,
+            tool_calls_dict=tool_calls_dict,
+            input_list_dict=input_list_dict,
+            output_dict=output_dict,
+            time_duration=time.monotonic() - start_time,
+            errors=errors
+        )
+
+class MultiAgentSystem:
+
+    ImplementedMASRunnerType = Literal["orchestrator_worker", "planner_executor"]
+
+    def __init__(
         self,
-        raw_responses: list[ModelResponse],
-    ) -> dict[str, int]:
-        
-        usage = {
-            "input_tokens": 0,
-            "output_tokens": 0,
-            "total_tokens": 0,
-            "requests": 0
-        }
-        
-        for response in raw_responses:
-            usage["input_tokens"] += response.usage.input_tokens
-            usage["output_tokens"] += response.usage.output_tokens
-            usage["total_tokens"] += response.usage.total_tokens
-            usage["requests"] += response.usage.requests
+        agents: Agent | list[Agent],
+        MAS_runner: ImplementedMASRunnerType | Awaitable,
+        **runner_config: Any,
+    ):
+        """
+        MAS_runner: defines the multi-agent-system runner to use. Supported runners are:
+            - "orchestrator_worker": A single agent acts as an orchestrator, delegating
+                tasks to worker agents as needed. All worker agents should be pre-registered as tools for the orchestrator agent to call.
+            - "planner_executor": Two agents work in tandem, where the first agent
+                acts as a planner, generating plans or outputs to be executed by the
+                second agent (executor).
+            - Custom async function: You can provide your own multi-agent-system runner
+                as an async function that takes in four required named arguments:
+                MAS, input, context, attack_hooks, and any additional keyword arguments you need.
+        agents: The agent(s) to be used in the multi-agent-system runner.
+        **runner_config: Default runner configuration. Can be overridden in query().
+            Examples:
+            - For orchestrator_worker: endpoint_orchestrator, max_orchestrator_iterations
+            - For planner_executor: endpoint_planner, endpoint_executor, max_iterations, 
+                max_planner_iterations, max_executor_iterations, enable_planner_memory, 
+                enable_executor_memory, shared_memory, termination_condition
+            - For custom runners: any parameters your runner accepts
+        """
 
-        return usage
+        if isinstance(MAS_runner, str) and MAS_runner == "orchestrator_worker":
+            self.MAS_runner = run_orchestrator_worker
+        
+        elif isinstance(MAS_runner, str) and MAS_runner == "planner_executor":
+            self.MAS_runner = run_planner_executor
+            
+        elif inspect.iscoroutinefunction(MAS_runner):
+            self.MAS_runner = MAS_runner
+            
+        else:
+            raise ValueError(f"Invalid runner specified. Supported runners are {get_args(self.ImplementedMASRunnerType)} or you can provide a custom multi-agent-system runner as an async function.")
 
-    def cast_to_function_calls(
+        self.agents = agents
+        self.runner_config = runner_config
+
+    async def query(
         self,
-        tool_calls: list[dict[str, Any]],
-    ) -> list[FunctionCall]:
-        '''
-        Converts a list of tool calls to a list of FunctionCall objects.
-        '''
-        return [
-            FunctionCall(
-                function=tool_call["tool_name"],
-                args = json.loads(tool_call["tool_arguments"]),
-            )
-            for tool_call in tool_calls
-        ]
+        input: str | list[dict[str, Any]],
+        context: TaskEnvironment | None = None,
+        attack_hooks: list[Callable] | None = None,
+        **runner_kwargs: Any,
+    ) -> MASRunResult:
+        """
+        Query the multi-agent system.
+        
+        Args:
+            input: The input to the MAS.
+            context: The task environment.
+            attack_hooks: Optional list of callable to apply attacks during execution.
+            **runner_kwargs: Runner-specific parameters that override runner_config from __init__.
+                Examples: max_iterations, endpoint_planner, enable_planner_memory, etc.
+        """
+        # Merge: defaults from init + runtime overrides (query kwargs take precedence)
+        final_runner_config = {**self.runner_config, **runner_kwargs}
+        
+        return await self.MAS_runner(
+            MAS=self,
+            input=input,
+            context=context,
+            attack_hooks=attack_hooks,
+            **final_runner_config
+        )
     
-    def cast_output_to_input(
+    def _agent_output_to_agent_input(
         self,
         output: Any,
     ):
@@ -487,7 +455,7 @@ class MultiAgentSystem:
             input = output.model_dump_json(indent=2)
         elif output is None:
             # If the output is None, we raise an error
-            raise ValueError("Planner did not produce a final output to send to the executor!")
+            raise ValueError("Output to be cast to input cannot be None.")
         else:
             try:
                 # If the output is some other type, we try to cast it using JSON
@@ -500,3 +468,11 @@ class MultiAgentSystem:
                 # If the output cannot be cast to a string, we raise an error
                 raise ValueError(f"Failed to cast the output to string using JSON: {e}")
         return input
+    
+    def update_MAS_usage(
+        self,
+        current_usage: dict[str, Any],
+        new_usage: dict[str, Any],
+    ) -> dict[str, Any]:
+        """A convenience method to update the current usage dictionary with the new usage dictionary"""
+        return update_usage(current_usage, new_usage)

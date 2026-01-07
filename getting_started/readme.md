@@ -1,0 +1,11 @@
+# Getting Started
+
+This folder contains notebooks that walk you through the core components of our framework. We recommend the following reading order:
+
+1. **core_components.ipynb**: Learn about the core building blocks of our framework - Agents and Multi-Agent Systems (MAS). This guide will help you create and customize your own MAS for benchmarking.
+
+2. **task_suite_benchmark.ipynb**: Discover how to benchmark your MAS on different types of tasks using our pre-built task suites, including both benign and adversarial scenarios.
+
+3. **attack_hooks.ipynb**: Learn how to inject custom functions at specific events during MAS execution, enabling flexible attack configurations and testing.
+
+4. **add_new_tasks.md**: Learn how to create your own task suite and add tasks to existing or new task suites

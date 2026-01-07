@@ -1,4 +1,12 @@
 openai
-openai-agents
 litellm
-autogen-agentchat
+pydantic
+python-dotenv
+deepdiff
+pyyaml
+tqdm
+numpy
+docker
+typing-extensions
+docstring-parser
+-e .

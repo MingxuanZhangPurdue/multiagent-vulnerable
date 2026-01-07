@@ -5,7 +5,7 @@ from mav.Tasks.travel.environment import ReservationType
 from mav.Tasks.travel.task_suite import travel_task_suite as task_suite
 from mav.Tasks.travel.environment import TravelEnvironment
 from mav.Tasks.travel.task_suite import TravelDeepDiff
-from mav.items import FunctionCall
+from mav.Tasks.items import FunctionCall
 from mav.Tasks.task_combinator import TaskCombinator
 
 TravelUserTask = BaseUserTask[TravelEnvironment]

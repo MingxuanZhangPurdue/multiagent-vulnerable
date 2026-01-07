@@ -1,13 +1,10 @@
 from collections.abc import Sequence
-from typing import TYPE_CHECKING, Generic, TypeVar
+from typing import Generic, TypeVar
 
 from mav.Tasks.base_tasks import BaseUserTask, TaskDifficulty
-from mav.items import FunctionCall
+from mav.Tasks.items import FunctionCall
 from mav.Tasks.base_environment import TaskEnvironment
 from mav.Tasks.task_suite import TaskSuite
-
-if TYPE_CHECKING:
-    from agentdojo.task_suite import TaskSuite
 
 TASK = TypeVar("TASK", bound=BaseUserTask)
 ENV = TypeVar("ENV", bound=TaskEnvironment)

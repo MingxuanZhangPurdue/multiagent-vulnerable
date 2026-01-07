@@ -2,7 +2,7 @@ from typing import ClassVar
 from mav.Tasks.base_tasks import BaseAttackTask, TaskDifficulty
 from mav.Tasks.travel.task_suite import TravelEnvironment
 from mav.Tasks.travel.task_suite import travel_task_suite as task_suite
-from mav.items import FunctionCall
+from mav.Tasks.items import FunctionCall
 
 import datetime
 from datetime import timedelta
