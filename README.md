@@ -1,5 +1,5 @@
 <h1 align="center">
-    🤖 MAV Framework
+     MAV Framework <img src="assets/logo.jpeg" alt="MAV Framework" width="60"/>
 </h1>
 <p align="center">
     <p align="center">Multi-Agent Vulnerable Framework - Testing multi-agent systems against security vulnerabilities and attack vectors
@@ -13,7 +13,7 @@
 </h4>
 
 <p align="center">
-    <img src="assets/mav_logo.png" alt="MAV Framework" width="600"/>
+    <img src="assets/pear_bench.png" alt="MAV Framework" width="1024"/>
 </p>
 
 ## Prerequisites
