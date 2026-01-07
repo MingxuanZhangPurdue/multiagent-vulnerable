@@ -58,7 +58,6 @@ multiagent-vulnerable/
         │   ├── user_tasks.py         # User tasks
         │   ├── attack_tasks/         # Attack task implementations
         │   └── data/                 # Environment data and configs
-        ├── bash_exec/                # Bash execution domain tasks
         ├── python_exec/              # Python execution domain tasks
         ├── slack/                    # Slack domain tasks
         ├── travel/                   # Travel domain tasks
