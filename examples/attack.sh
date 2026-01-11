@@ -33,28 +33,18 @@ declare -a attack_steps=("on_executor_start" "on_executor_end")
 
 # Available prompt templates for harmful tasks
 declare -a harmful_prompt_templates=(
-    "harmful_security_incident"
-    # "harmful_breach_response"
-    # "harmful_emergency_protocol"
-    # "harmful_critical_alert"
-    # "harmful_incident_response"
-    # "default"
+    # "user_request_update" (GPT)
+    # "authority_override" (Gemini)
+    "authority_override"
 )
 
 # Enhanced privacy attack templates for better success with user tasks
 # These templates are designed to work better with user tasks by creating
 # more natural and contextually appropriate prompts that reduce model security awareness
 declare -a privacy_prompt_templates=(
-    "privacy_audit_preparation"
-    # "privacy_emergency_planning"
-    # "privacy_ops_continuity"
-    # "privacy_compliance_audit"
-    # "privacy_account_recovery"
-    # "privacy_invoice_reconciliation"
-    # "privacy_trip_itinerary_sync"
-    # "privacy_workspace_single_source"
-    # "privacy_hr_verification"
-    # "privacy_security_log_match"
+    # "data_governance" (GPT)
+    # "privacy_compliance_audit" (Gemini)
+    "privacy_compliance_audit"
 )
 
 basename_no_ext () {
